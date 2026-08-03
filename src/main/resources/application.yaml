@@ -1,0 +1,40 @@
+server:
+  port: ${WAVE_SERVICE_PORT:8088}
+
+spring:
+  application:
+    name: ${WAVE_SERVICE_NAME:wave-service}
+
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: ${EUREKA_REGISTER:true}
+    fetch-registry: ${EUREKA_FETCH:true}
+
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+wave:
+  checkout:
+    public-base-url: ${WAVE_PUBLIC_BASE_URL:}
+    signing-secret: ${WAVE_CHECKOUT_SIGNING_SECRET:}
+    default-logo-url: ${WAVE_CHECKOUT_DEFAULT_LOGO_URL:}
+    default-theme: ${WAVE_CHECKOUT_DEFAULT_THEME:#0095ff}
+    link-ttl-minutes: ${WAVE_CHECKOUT_LINK_TTL_MINUTES:30}
+  providers:
+    kkiapay:
+      sandbox: ${KKIAPAY_SANDBOX:true}
+      base-url: ${KKIAPAY_BASE_URL:}
+      public-key: ${KKIAPAY_PUBLIC_KEY:}
+      private-key: ${KKIAPAY_PRIVATE_KEY:}
+      secret-key: ${KKIAPAY_SECRET_KEY:}
+
+logging:
+  level:
+    root: INFO
+    com.jambarpay.waveservice: DEBUG
