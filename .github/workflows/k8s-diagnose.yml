@@ -1,0 +1,49 @@
+name: Kubernetes Diagnose
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VPS_HOST: ${{ secrets.VPS_HOST }}
+  VPS_USER: ${{ secrets.VPS_USER }}
+  VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+  VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+  K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'jambarpay' }}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare SSH key
+        run: |
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "${VPS_SSH_KEY}" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "${VPS_KNOWN_HOSTS}" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Collect cluster diagnostics
+        env:
+          SSH_OPTS: -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6
+        run: |
+          ssh ${SSH_OPTS} "${VPS_USER}@${VPS_HOST}" "
+            set +e
+            echo '=== DEPLOYMENT ==='
+            kubectl -n ${K8S_NAMESPACE} get deployment wave-service -o wide
+            echo '=== SERVICE ==='
+            kubectl -n ${K8S_NAMESPACE} get svc wave-service -o wide
+            echo '=== PODS ==='
+            kubectl -n ${K8S_NAMESPACE} get pods -l app=wave-service -o wide
+            echo '=== DESCRIBE DEPLOYMENT ==='
+            kubectl -n ${K8S_NAMESPACE} describe deployment wave-service
+            echo '=== DESCRIBE PODS ==='
+            kubectl -n ${K8S_NAMESPACE} describe pods -l app=wave-service
+            echo '=== LOGS ==='
+            kubectl -n ${K8S_NAMESPACE} logs deployment/wave-service --tail=200
+            echo '=== LATEST EVENTS ==='
+            kubectl -n ${K8S_NAMESPACE} get events --sort-by=.metadata.creationTimestamp | tail -n 50
+          "

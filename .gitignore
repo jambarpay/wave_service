@@ -2,6 +2,8 @@ target/
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
 src/main/.env
 .idea/
 .vscode/
