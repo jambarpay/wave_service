@@ -16,7 +16,8 @@ eureka:
     fetch-registry: ${EUREKA_FETCH:true}
 
   instance:
-    prefer-ip-address: true
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:false}
     instance-id: ${spring.application.name}:${server.port}
 
 wave:
@@ -33,6 +34,15 @@ wave:
       public-key: ${KKIAPAY_PUBLIC_KEY:}
       private-key: ${KKIAPAY_PRIVATE_KEY:}
       secret-key: ${KKIAPAY_SECRET_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
 
 logging:
   level:
