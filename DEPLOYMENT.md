@@ -23,7 +23,7 @@ EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
 EUREKA_REGISTER=true
 EUREKA_FETCH=true
 WAVE_PUBLIC_BASE_URL=https://wave.jambarpay.com
-WAVE_CHECKOUT_SIGNING_SECRET=change-this-secret
+WAVE_CHECKOUT_SIGNING_SECRET=replace-with-a-random-secret-of-at-least-32-bytes
 WAVE_CHECKOUT_DEFAULT_LOGO_URL=
 WAVE_CHECKOUT_DEFAULT_THEME=#0095ff
 WAVE_CHECKOUT_LINK_TTL_MINUTES=30
@@ -32,6 +32,8 @@ KKIAPAY_BASE_URL=https://api-sandbox.kkiapay.me
 KKIAPAY_PUBLIC_KEY=your-public-key
 KKIAPAY_PRIVATE_KEY=your-private-key
 KKIAPAY_SECRET_KEY=your-secret-key
+JWT_ISSUER=jambaarpay-user-service
+JWT_SECRET=replace-with-the-same-random-secret-used-by-user-service-and-api-gateway
 ```
 
 ## Manual diagnose

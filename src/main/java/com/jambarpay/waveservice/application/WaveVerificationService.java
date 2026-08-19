@@ -34,9 +34,11 @@ public class WaveVerificationService {
     }
 
     public WaveTransactionVerificationResult verifyTransaction(String transactionId) {
-        if (transactionId == null || transactionId.isBlank()) {
+        if (transactionId == null || transactionId.isBlank() || transactionId.trim().length() > 255) {
             throw new DomainException("Transaction id is required");
         }
+
+        transactionId = transactionId.trim();
 
         ensureCredentialsAreConfigured();
 
@@ -61,12 +63,12 @@ public class WaveVerificationService {
         }
 
         return new WaveTransactionVerificationResult(
-                response.transactionId() != null ? response.transactionId() : transactionId,
+                truncate(response.transactionId() != null ? response.transactionId() : transactionId),
                 response.amount(),
-                response.status(),
-                response.source(),
-                response.reason(),
-                response.failureMessage()
+                truncate(response.status()),
+                truncate(response.source()),
+                truncate(response.reason()),
+                truncate(response.failureMessage())
         );
     }
 
@@ -88,6 +90,13 @@ public class WaveVerificationService {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static String truncate(String value) {
+        if (value == null || value.length() <= 512) {
+            return value;
+        }
+        return value.substring(0, 512);
     }
 
     private record KkiapayTransactionStatusRequest(String transactionId) {

@@ -16,7 +16,7 @@ eureka:
     fetch-registry: ${EUREKA_FETCH:true}
 
   instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:${spring.application.name}}
     prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:false}
     instance-id: ${spring.application.name}:${server.port}
 
@@ -35,6 +35,11 @@ wave:
       private-key: ${KKIAPAY_PRIVATE_KEY:}
       secret-key: ${KKIAPAY_SECRET_KEY:}
 
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:jambaarpay-user-service}
+    secret: ${JWT_SECRET}
+
 management:
   endpoints:
     web:
@@ -43,8 +48,16 @@ management:
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:
     root: INFO
-    com.jambarpay.waveservice: DEBUG
+    com.jambarpay.waveservice: INFO
