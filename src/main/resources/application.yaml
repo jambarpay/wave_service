@@ -22,7 +22,7 @@ eureka:
 
 wave:
   checkout:
-    public-base-url: ${WAVE_PUBLIC_BASE_URL:https://wave.jambarpay.com}
+    public-base-url: ${WAVE_PUBLIC_BASE_URL:https://jambaarpay.com}
     signing-secret: ${WAVE_CHECKOUT_SIGNING_SECRET:}
     default-logo-url: ${WAVE_CHECKOUT_DEFAULT_LOGO_URL:}
     default-theme: ${WAVE_CHECKOUT_DEFAULT_THEME:#0095ff}
