@@ -57,4 +57,31 @@ class WaveCheckoutLinkServiceTest {
         assertEquals("Diali", payload.name());
         assertEquals("momo", payload.paymentMethod());
     }
+
+    @Test
+    void shouldAllowTemporaryHttpCheckoutBaseUrl() {
+        WaveCheckoutProperties checkoutProperties = new WaveCheckoutProperties();
+        checkoutProperties.setPublicBaseUrl("http://149.202.61.30:30088");
+        checkoutProperties.setSigningSecret("checkout-secret-with-at-least-32-bytes");
+
+        KkiapayProperties kkiapayProperties = new KkiapayProperties();
+        kkiapayProperties.setPublicKey("public-key");
+
+        WaveCheckoutLinkService service = new WaveCheckoutLinkService(
+                new ObjectMapper().findAndRegisterModules(),
+                checkoutProperties,
+                kkiapayProperties,
+                Clock.fixed(Instant.parse("2026-08-02T10:00:00Z"), ZoneOffset.UTC)
+        );
+
+        WaveCheckoutLinkResult result = service.createCheckoutLink(
+                CreateCheckoutLinkRequest.builder()
+                        .amount(new BigDecimal("2500"))
+                        .callbackUrl("https://jambaarpay.com/enterprise-balance-charge")
+                        .build(),
+                "http://localhost:8088"
+        );
+
+        assertTrue(result.paymentUrl().startsWith("http://149.202.61.30:30088/api/v1/wave/checkout/"));
+    }
 }

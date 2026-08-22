@@ -24,6 +24,8 @@ public class WaveCheckoutLinkService {
 
     private static final Base64.Encoder BASE64_URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder BASE64_URL_DECODER = Base64.getUrlDecoder();
+    private static final String TEMPORARY_PUBLIC_HOST = "149.202.61.30";
+    private static final int TEMPORARY_PUBLIC_PORT = 30088;
 
     private final ObjectMapper objectMapper;
     private final WaveCheckoutProperties checkoutProperties;
@@ -258,8 +260,31 @@ public class WaveCheckoutLinkService {
             }
             baseUrl = fallbackBaseUrl;
         }
-        validatePublicUrl(baseUrl, "publicBaseUrl");
+        validateCheckoutBaseUrl(baseUrl);
         return stripTrailingSlash(baseUrl.trim());
+    }
+
+    private void validateCheckoutBaseUrl(String value) {
+        if (isTemporaryHttpCheckoutUrl(value)) {
+            return;
+        }
+        validatePublicUrl(value, "publicBaseUrl");
+    }
+
+    private boolean isTemporaryHttpCheckoutUrl(String value) {
+        if (!hasText(value)) {
+            return false;
+        }
+        try {
+            URI uri = new URI(value.trim());
+            return "http".equalsIgnoreCase(uri.getScheme())
+                    && TEMPORARY_PUBLIC_HOST.equals(uri.getHost())
+                    && uri.getPort() == TEMPORARY_PUBLIC_PORT
+                    && uri.getUserInfo() == null
+                    && uri.getFragment() == null;
+        } catch (URISyntaxException exception) {
+            return false;
+        }
     }
 
     private String resolveSigningSecret() {
