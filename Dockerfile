@@ -13,4 +13,6 @@ COPY --from=build /app/target/wave-service-3.4.3.jar app.jar
 
 EXPOSE 8088
 
+USER 10001:10001
+
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

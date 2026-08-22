@@ -50,6 +50,8 @@ spec:
         - name: ghcr-auth
       securityContext:
         runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
