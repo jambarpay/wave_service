@@ -22,8 +22,7 @@ WAVE_SERVICE_PORT=8088
 EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
 EUREKA_REGISTER=true
 EUREKA_FETCH=true
-# Adresse temporaire avant la mise en place du DNS.
-WAVE_PUBLIC_BASE_URL=http://149.202.61.30:30088
+WAVE_PUBLIC_BASE_URL=https://wave.jambarpay.com
 WAVE_CHECKOUT_SIGNING_SECRET=replace-with-a-random-secret-of-at-least-32-bytes
 WAVE_CHECKOUT_DEFAULT_LOGO_URL=
 WAVE_CHECKOUT_DEFAULT_THEME=#0095ff
