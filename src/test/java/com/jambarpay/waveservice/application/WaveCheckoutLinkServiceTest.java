@@ -19,7 +19,7 @@ class WaveCheckoutLinkServiceTest {
     @Test
     void shouldCreateAndReadCheckoutLink() {
         WaveCheckoutProperties checkoutProperties = new WaveCheckoutProperties();
-        checkoutProperties.setSigningSecret("checkout-secret");
+        checkoutProperties.setSigningSecret("checkout-secret-with-at-least-32-bytes");
         checkoutProperties.setLinkTtlMinutes(30);
         checkoutProperties.setDefaultTheme("#123456");
 

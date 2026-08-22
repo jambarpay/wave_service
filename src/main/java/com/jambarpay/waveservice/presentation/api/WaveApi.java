@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 @Tag(name = "Wave Service", description = "Facade Wave pour les providers de paiement")
 @RequestMapping("/api/v1/wave")
@@ -33,6 +35,7 @@ public interface WaveApi {
     @Operation(summary = "Vérifier une transaction Wave")
     @GetMapping("/transactions/{transactionId}/verify")
     ResponseEntity<WaveTransactionVerificationResponse> verifyTransaction(
-            @PathVariable String transactionId
+            @PathVariable String transactionId,
+            @AuthenticationPrincipal Jwt jwt
     );
 }

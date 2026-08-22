@@ -9,9 +9,12 @@ import com.jambarpay.waveservice.presentation.request.CreateCheckoutLinkRequest;
 import com.jambarpay.waveservice.presentation.response.CreateCheckoutLinkResponse;
 import com.jambarpay.waveservice.presentation.response.WaveTransactionVerificationResponse;
 import org.springframework.http.MediaType;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 @RestController
 public class WaveController implements WaveApi {
@@ -28,6 +31,7 @@ public class WaveController implements WaveApi {
     }
 
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CreateCheckoutLinkResponse> createCheckoutLink(
             CreateCheckoutLinkRequest request
     ) {
@@ -50,12 +54,17 @@ public class WaveController implements WaveApi {
     public ResponseEntity<String> openCheckoutPage(String token) {
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
+                .header("X-Content-Type-Options", "nosniff")
                 .body(waveCheckoutLinkService.renderCheckoutPage(token));
     }
 
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<WaveTransactionVerificationResponse> verifyTransaction(
-            String transactionId
+            String transactionId,
+            Jwt jwt
     ) {
         WaveTransactionVerificationResult result = waveVerificationService.verifyTransaction(
                 transactionId

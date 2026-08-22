@@ -48,6 +48,10 @@ spec:
     spec:
       imagePullSecrets:
         - name: ghcr-auth
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: wave-service
           image: ${IMAGE_REPOSITORY}:${IMAGE_TAG}
@@ -70,21 +74,24 @@ spec:
             - secretRef:
                 name: wave-service-env
           startupProbe:
-            tcpSocket:
+            httpGet:
+              path: /actuator/health/readiness
               port: 8088
             initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 60
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /actuator/health/readiness
               port: 8088
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 18
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /actuator/health/liveness
               port: 8088
             initialDelaySeconds: 60
             periodSeconds: 20
@@ -97,4 +104,17 @@ spec:
             limits:
               cpu: 500m
               memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
 YAML

@@ -16,13 +16,14 @@ eureka:
     fetch-registry: ${EUREKA_FETCH:true}
 
   instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:${spring.application.name}}
     prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:false}
     instance-id: ${spring.application.name}:${server.port}
 
 wave:
   checkout:
-    public-base-url: ${WAVE_PUBLIC_BASE_URL:}
+    # Adresse temporaire avant la mise en place du DNS wave.jambarpay.com.
+    public-base-url: ${WAVE_PUBLIC_BASE_URL:http://149.202.61.30:30088}
     signing-secret: ${WAVE_CHECKOUT_SIGNING_SECRET:}
     default-logo-url: ${WAVE_CHECKOUT_DEFAULT_LOGO_URL:}
     default-theme: ${WAVE_CHECKOUT_DEFAULT_THEME:#0095ff}
@@ -35,6 +36,11 @@ wave:
       private-key: ${KKIAPAY_PRIVATE_KEY:}
       secret-key: ${KKIAPAY_SECRET_KEY:}
 
+security:
+  jwt:
+    issuer: ${JWT_ISSUER:jambaarpay-user-service}
+    secret: ${JWT_SECRET}
+
 management:
   endpoints:
     web:
@@ -43,8 +49,16 @@ management:
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
+
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:
     root: INFO
-    com.jambarpay.waveservice: DEBUG
+    com.jambarpay.waveservice: INFO
