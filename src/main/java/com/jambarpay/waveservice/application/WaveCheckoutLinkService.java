@@ -14,7 +14,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Base64;
+import java.security.MessageDigest;
 
 @Service
 public class WaveCheckoutLinkService {
@@ -53,21 +56,27 @@ public class WaveCheckoutLinkService {
             String fallbackBaseUrl
     ) {
         ensurePublicKeyIsConfigured();
+        validateCallbackUrl(request.getCallbackUrl());
+        ensureLinkTtlIsValid();
 
         Instant expiresAt = Instant.now(clock).plusSeconds(
                 checkoutProperties.getLinkTtlMinutes() * 60
         );
 
+        String logoUrl = coalesce(request.getLogoUrl(), checkoutProperties.getDefaultLogoUrl());
+        validateOptionalPublicUrl(logoUrl, "logoUrl");
+        String theme = normalizeTheme(request.getTheme(), checkoutProperties.getDefaultTheme());
+
         WaveCheckoutLinkPayload payload = new WaveCheckoutLinkPayload(
                 request.getAmount(),
-                request.getCallbackUrl(),
+                request.getCallbackUrl().trim(),
                 request.getName(),
                 request.getEmail(),
                 request.getPhone(),
                 normalizeBlank(request.getPaymentMethod()),
                 normalizeBlank(request.getPartnerId()),
-                coalesce(request.getLogoUrl(), checkoutProperties.getDefaultLogoUrl()),
-                coalesce(request.getTheme(), checkoutProperties.getDefaultTheme()),
+                logoUrl,
+                theme,
                 expiresAt
         );
 
@@ -84,7 +93,7 @@ public class WaveCheckoutLinkService {
         ensurePublicKeyIsConfigured();
         WaveCheckoutLinkPayload payload = verifyAndRead(token);
 
-        if (payload.expiresAt().isBefore(Instant.now(clock))) {
+        if (payload.expiresAt() == null || !Instant.now(clock).isBefore(payload.expiresAt())) {
             throw new DomainException("Checkout link has expired");
         }
 
@@ -183,7 +192,7 @@ public class WaveCheckoutLinkService {
     }
 
     WaveCheckoutLinkPayload verifyAndRead(String token) {
-        if (token == null || token.isBlank() || !token.contains(".")) {
+        if (token == null || token.isBlank() || token.length() > 16384 || !token.contains(".")) {
             throw new DomainException("Invalid checkout link");
         }
 
@@ -192,13 +201,24 @@ public class WaveCheckoutLinkService {
         String signaturePart = parts[1];
 
         String expectedSignature = signPayloadPart(payloadPart);
-        if (!expectedSignature.equals(signaturePart)) {
+        if (!MessageDigest.isEqual(
+                expectedSignature.getBytes(StandardCharsets.UTF_8),
+                signaturePart.getBytes(StandardCharsets.UTF_8)
+        )) {
             throw new DomainException("Invalid checkout link signature");
         }
 
         try {
             byte[] payloadBytes = BASE64_URL_DECODER.decode(payloadPart);
-            return objectMapper.readValue(payloadBytes, WaveCheckoutLinkPayload.class);
+            WaveCheckoutLinkPayload payload = objectMapper.readValue(payloadBytes, WaveCheckoutLinkPayload.class);
+            if (payload == null || payload.amount() == null || payload.callbackUrl() == null
+                    || payload.expiresAt() == null) {
+                throw new DomainException("Invalid checkout link payload");
+            }
+            validateCallbackUrl(payload.callbackUrl());
+            validateOptionalPublicUrl(payload.logoUrl(), "logoUrl");
+            normalizeTheme(payload.theme(), checkoutProperties.getDefaultTheme());
+            return payload;
         } catch (Exception exception) {
             throw new DomainException("Invalid checkout link payload");
         }
@@ -231,23 +251,31 @@ public class WaveCheckoutLinkService {
     }
 
     private String resolvePublicBaseUrl(String fallbackBaseUrl) {
-        if (hasText(checkoutProperties.getPublicBaseUrl())) {
-            return stripTrailingSlash(checkoutProperties.getPublicBaseUrl());
+        String baseUrl = checkoutProperties.getPublicBaseUrl();
+        if (!hasText(baseUrl)) {
+            if (!isLocalUrl(fallbackBaseUrl)) {
+                throw new DomainException("Public base url must be configured");
+            }
+            baseUrl = fallbackBaseUrl;
         }
-        if (hasText(fallbackBaseUrl)) {
-            return stripTrailingSlash(fallbackBaseUrl);
-        }
-        throw new DomainException("Unable to resolve public base url");
+        validatePublicUrl(baseUrl, "publicBaseUrl");
+        return stripTrailingSlash(baseUrl.trim());
     }
 
     private String resolveSigningSecret() {
+        String secret;
         if (hasText(checkoutProperties.getSigningSecret())) {
-            return checkoutProperties.getSigningSecret();
+            secret = checkoutProperties.getSigningSecret();
+        } else if (hasText(kkiapayProperties.getSecretKey())) {
+            secret = kkiapayProperties.getSecretKey();
+        } else {
+            throw new DomainException("Checkout signing secret is not configured");
         }
-        if (hasText(kkiapayProperties.getSecretKey())) {
-            return kkiapayProperties.getSecretKey();
+
+        if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new DomainException("Checkout signing secret must contain at least 32 bytes");
         }
-        throw new DomainException("Checkout signing secret is not configured");
+        return secret;
     }
 
     private void ensurePublicKeyIsConfigured() {
@@ -326,6 +354,74 @@ public class WaveCheckoutLinkService {
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n")
-                .replace("\r", "\\r");
+                .replace("\r", "\\r")
+                .replace("<", "\\u003C")
+                .replace(">", "\\u003E")
+                .replace("&", "\\u0026")
+                .replace("\u2028", "\\u2028")
+                .replace("\u2029", "\\u2029");
+    }
+
+    private void validateCallbackUrl(String callbackUrl) {
+        validatePublicUrl(callbackUrl, "callbackUrl");
+    }
+
+    private void validateOptionalPublicUrl(String url, String fieldName) {
+        if (hasText(url)) {
+            validatePublicUrl(url, fieldName);
+        }
+    }
+
+    private void validatePublicUrl(String value, String fieldName) {
+        if (!hasText(value)) {
+            throw new DomainException(fieldName + " is required");
+        }
+
+        try {
+            URI uri = new URI(value.trim());
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            boolean localHttp = "http".equalsIgnoreCase(scheme)
+                    && ("localhost".equalsIgnoreCase(host)
+                    || "127.0.0.1".equals(host)
+                    || "[::1]".equals(host));
+            if ((!"https".equalsIgnoreCase(scheme) && !localHttp)
+                    || host == null || uri.getUserInfo() != null || uri.getFragment() != null) {
+                throw new DomainException(fieldName + " must be an HTTPS URL");
+            }
+        } catch (URISyntaxException exception) {
+            throw new DomainException(fieldName + " is invalid");
+        }
+    }
+
+    private boolean isLocalUrl(String value) {
+        if (!hasText(value)) {
+            return false;
+        }
+        try {
+            URI uri = new URI(value.trim());
+            return ("localhost".equalsIgnoreCase(uri.getHost())
+                    || "127.0.0.1".equals(uri.getHost())
+                    || "[::1]".equals(uri.getHost()))
+                    && uri.getUserInfo() == null
+                    && uri.getFragment() == null;
+        } catch (URISyntaxException exception) {
+            return false;
+        }
+    }
+
+    private String normalizeTheme(String requestedTheme, String fallbackTheme) {
+        String theme = hasText(requestedTheme) ? requestedTheme.trim() : fallbackTheme;
+        if (!hasText(theme) || !theme.matches("^#[0-9A-Fa-f]{6}$")) {
+            throw new DomainException("Theme must be a hexadecimal color");
+        }
+        return theme;
+    }
+
+    private void ensureLinkTtlIsValid() {
+        if (checkoutProperties.getLinkTtlMinutes() < 1
+                || checkoutProperties.getLinkTtlMinutes() > 1440) {
+            throw new DomainException("Checkout link TTL is invalid");
+        }
     }
 }
