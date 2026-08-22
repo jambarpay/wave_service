@@ -22,7 +22,8 @@ eureka:
 
 wave:
   checkout:
-    public-base-url: ${WAVE_PUBLIC_BASE_URL:}
+    # Adresse temporaire avant la mise en place du DNS wave.jambarpay.com.
+    public-base-url: ${WAVE_PUBLIC_BASE_URL:http://149.202.61.30:30088}
     signing-secret: ${WAVE_CHECKOUT_SIGNING_SECRET:}
     default-logo-url: ${WAVE_CHECKOUT_DEFAULT_LOGO_URL:}
     default-theme: ${WAVE_CHECKOUT_DEFAULT_THEME:#0095ff}
