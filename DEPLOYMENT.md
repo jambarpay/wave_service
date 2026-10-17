@@ -38,6 +38,19 @@ JWT_SECRET=replace-with-the-same-random-secret-used-by-user-service-and-api-gate
 
 ## Manual diagnose
 
+The web checkout returns to `/enterprise-employees/charge-balances` on the
+origin that initiated the payment, so its pending recharge remains available in
+the browser session. `WAVE_PUBLIC_BASE_URL` must point to a public gateway URL
+serving `/api/v1/wave/checkout/{token}`. This signed, expiring page is accessible
+without a bearer token; checkout creation and transaction verification require
+authentication.
+
+For a `400` from `POST /api/v1/wave/checkout-links`, inspect the JSON `message`
+field. Link creation requires `KKIAPAY_PUBLIC_KEY` and a signing secret of at
+least 32 bytes (`WAVE_CHECKOUT_SIGNING_SECRET`, or `KKIAPAY_SECRET_KEY` as a
+fallback). Configure these in `WAVE_SERVICE_ENV` and redeploy if they are missing
+or too short.
+
 ```bash
 sudo kubectl -n jambarpay get deployment wave-service
 sudo kubectl -n jambarpay get svc wave-service

@@ -237,10 +237,11 @@ public class WaveCheckoutLinkService {
     }
 
     private String signPayloadPart(String payloadPart) {
+        String signingSecret = resolveSigningSecret();
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(
-                    resolveSigningSecret().getBytes(StandardCharsets.UTF_8),
+                    signingSecret.getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256"
             ));
             byte[] signatureBytes = mac.doFinal(

@@ -8,12 +8,17 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(DomainException.class)
-    public ResponseEntity<String> handleDomainException(DomainException exception) {
-        return ResponseEntity.badRequest().body(exception.getMessage());
+    public ResponseEntity<Map<String, String>> handleDomainException(DomainException exception) {
+        return ResponseEntity.badRequest().body(Map.of(
+                "code", "PAYMENT_REQUEST_REJECTED",
+                "message", exception.getMessage()
+        ));
     }
 
     @ExceptionHandler(DownstreamServiceUnavailableException.class)
