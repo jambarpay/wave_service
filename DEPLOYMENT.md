@@ -51,6 +51,17 @@ least 32 bytes (`WAVE_CHECKOUT_SIGNING_SECRET`, or `KKIAPAY_SECRET_KEY` as a
 fallback). Configure these in `WAVE_SERVICE_ENV` and redeploy if they are missing
 or too short.
 
+If the page displays `KKIAPAY public key is not configured`, set the real
+`KKIAPAY_PUBLIC_KEY` in the `WAVE_SERVICE_ENV` GitHub Actions secret of the
+Wave service repository. Include the corresponding `KKIAPAY_PRIVATE_KEY` and
+`KKIAPAY_SECRET_KEY` for transaction verification, and keep `KKIAPAY_SANDBOX`
+consistent with those keys. The `.env.example` file is a template; editing it
+does not update the deployed service.
+
+After updating the secret, rerun `Deploy On Main`. The deployment bundle hashes
+the environment file into the pod template, so changes to credentials restart
+the pods even when the image version stays the same.
+
 ```bash
 sudo kubectl -n jambarpay get deployment wave-service
 sudo kubectl -n jambarpay get svc wave-service

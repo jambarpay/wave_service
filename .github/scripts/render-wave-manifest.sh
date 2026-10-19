@@ -43,6 +43,8 @@ spec:
       maxSurge: 1
   template:
     metadata:
+      annotations:
+        checksum/wave-service-env: "${WAVE_SERVICE_ENV_CHECKSUM:-unversioned}"
       labels:
         app: wave-service
     spec:

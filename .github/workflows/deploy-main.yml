@@ -81,8 +81,9 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           mkdir -p deploy
-          bash .github/scripts/render-wave-manifest.sh > deploy/manifest.yaml
           printf '%s\n' "${WAVE_SERVICE_ENV}" > deploy/service.env
+          export WAVE_SERVICE_ENV_CHECKSUM="$(sha256sum deploy/service.env | cut -d ' ' -f 1)"
+          bash .github/scripts/render-wave-manifest.sh > deploy/manifest.yaml
 
       - name: Copy deployment bundle to VPS
         env:
