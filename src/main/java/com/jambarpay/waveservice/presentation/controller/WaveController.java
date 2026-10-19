@@ -8,7 +8,7 @@ import com.jambarpay.waveservice.presentation.api.WaveApi;
 import com.jambarpay.waveservice.presentation.request.CreateCheckoutLinkRequest;
 import com.jambarpay.waveservice.presentation.response.CreateCheckoutLinkResponse;
 import com.jambarpay.waveservice.presentation.response.WaveTransactionVerificationResponse;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -33,31 +33,34 @@ public class WaveController implements WaveApi {
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CreateCheckoutLinkResponse> createCheckoutLink(
-            CreateCheckoutLinkRequest request
+            CreateCheckoutLinkRequest request,
+            Jwt jwt
     ) {
         WaveCheckoutLinkResult result = waveCheckoutLinkService.createCheckoutLink(
                 request,
                 ServletUriComponentsBuilder.fromCurrentContextPath()
                         .build()
-                        .toUriString()
+                        .toUriString(),
+                jwt == null ? null : jwt.getSubject()
         );
 
         return ResponseEntity.ok(
                 CreateCheckoutLinkResponse.builder()
                         .paymentUrl(result.paymentUrl())
                         .expiresAt(result.expiresAt())
+                        .invoiceToken(result.invoiceToken())
                         .build()
         );
     }
 
     @Override
-    public ResponseEntity<String> openCheckoutPage(String token) {
-        return ResponseEntity.ok()
-                .contentType(MediaType.TEXT_HTML)
+    public ResponseEntity<Void> openCheckoutPage(String state, String invoiceToken) {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(waveCheckoutLinkService.checkoutReturnUrl(state, invoiceToken))
                 .cacheControl(CacheControl.noStore())
                 .header("Referrer-Policy", "no-referrer")
                 .header("X-Content-Type-Options", "nosniff")
-                .body(waveCheckoutLinkService.renderCheckoutPage(token));
+                .build();
     }
 
     @Override
@@ -67,7 +70,8 @@ public class WaveController implements WaveApi {
             Jwt jwt
     ) {
         WaveTransactionVerificationResult result = waveVerificationService.verifyTransaction(
-                transactionId
+                transactionId,
+                jwt == null ? null : jwt.getSubject()
         );
 
         return ResponseEntity.ok(

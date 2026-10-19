@@ -36,14 +36,9 @@ public class CreateCheckoutLinkRequest {
     @Size(max = 32)
     @Pattern(regexp = "^[+0-9 ()-]*$")
     private String phone;
-    @Size(max = 32)
-    @Pattern(regexp = "^[A-Za-z0-9_-]*$")
-    private String paymentMethod;
     @Size(max = 120)
     @Pattern(regexp = "^[A-Za-z0-9_-]*$")
     private String partnerId;
     @Size(max = 2048)
     private String logoUrl;
-    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$")
-    private String theme;
 }

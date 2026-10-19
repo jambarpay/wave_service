@@ -6,13 +6,13 @@ import com.jambarpay.waveservice.presentation.response.WaveTransactionVerificati
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
@@ -20,19 +20,21 @@ import org.springframework.security.oauth2.jwt.Jwt;
 @RequestMapping("/api/v1/wave")
 public interface WaveApi {
 
-    @Operation(summary = "Créer un lien de paiement Kkiapay hébergé par Wave")
+    @Operation(summary = "Créer une facture et un lien de paiement PayDunya")
     @PostMapping("/checkout-links")
     ResponseEntity<CreateCheckoutLinkResponse> createCheckoutLink(
-            @Valid @RequestBody CreateCheckoutLinkRequest request
+            @Valid @RequestBody CreateCheckoutLinkRequest request,
+            @AuthenticationPrincipal Jwt jwt
     );
 
-    @Operation(summary = "Ouvrir une page de paiement Kkiapay")
-    @GetMapping(value = "/checkout/{token}", produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<String> openCheckoutPage(
-            @PathVariable String token
+    @Operation(summary = "Retour PayDunya vers le site ou l'application mobile")
+    @GetMapping("/checkout/{state}")
+    ResponseEntity<Void> openCheckoutPage(
+            @PathVariable String state,
+            @RequestParam(name = "token", required = false) String invoiceToken
     );
 
-    @Operation(summary = "Vérifier une transaction Wave")
+    @Operation(summary = "Vérifier une facture PayDunya avant de créditer le portefeuille")
     @GetMapping("/transactions/{transactionId}/verify")
     ResponseEntity<WaveTransactionVerificationResponse> verifyTransaction(
             @PathVariable String transactionId,
