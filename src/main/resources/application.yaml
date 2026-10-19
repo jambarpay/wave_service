@@ -25,15 +25,15 @@ wave:
     public-base-url: ${WAVE_PUBLIC_BASE_URL:https://jambaarpay.com}
     signing-secret: ${WAVE_CHECKOUT_SIGNING_SECRET:}
     default-logo-url: ${WAVE_CHECKOUT_DEFAULT_LOGO_URL:}
+    default-theme: ${WAVE_CHECKOUT_DEFAULT_THEME:#0095ff}
     link-ttl-minutes: ${WAVE_CHECKOUT_LINK_TTL_MINUTES:30}
   providers:
-    paydunya:
-      sandbox: ${PAYDUNYA_SANDBOX:true}
-      base-url: ${PAYDUNYA_BASE_URL:}
-      master-key: ${PAYDUNYA_MASTER_KEY:}
-      private-key: ${PAYDUNYA_PRIVATE_KEY:}
-      token: ${PAYDUNYA_TOKEN:}
-      store-name: ${PAYDUNYA_STORE_NAME:Jambaar Pay}
+    kkiapay:
+      sandbox: ${KKIAPAY_SANDBOX:true}
+      base-url: ${KKIAPAY_BASE_URL:}
+      public-key: ${KKIAPAY_PUBLIC_KEY:}
+      private-key: ${KKIAPAY_PRIVATE_KEY:}
+      secret-key: ${KKIAPAY_SECRET_KEY:}
 
 security:
   jwt:

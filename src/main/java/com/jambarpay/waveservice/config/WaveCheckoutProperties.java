@@ -10,6 +10,7 @@ public class WaveCheckoutProperties {
     private String publicBaseUrl;
     private String signingSecret;
     private String defaultLogoUrl;
+    private String defaultTheme = "#0095ff";
     private long linkTtlMinutes = 30;
 
     public String getPublicBaseUrl() {
@@ -34,6 +35,14 @@ public class WaveCheckoutProperties {
 
     public void setDefaultLogoUrl(String defaultLogoUrl) {
         this.defaultLogoUrl = defaultLogoUrl;
+    }
+
+    public String getDefaultTheme() {
+        return defaultTheme;
+    }
+
+    public void setDefaultTheme(String defaultTheme) {
+        this.defaultTheme = defaultTheme;
     }
 
     public long getLinkTtlMinutes() {
