@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Prepare SSH key
         run: |
           mkdir -p "$HOME/.ssh"
@@ -30,20 +33,4 @@ jobs:
         env:
           SSH_OPTS: -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6
         run: |
-          ssh ${SSH_OPTS} "${VPS_USER}@${VPS_HOST}" "
-            set +e
-            echo '=== DEPLOYMENT ==='
-            kubectl -n ${K8S_NAMESPACE} get deployment wave-service -o wide
-            echo '=== SERVICE ==='
-            kubectl -n ${K8S_NAMESPACE} get svc wave-service -o wide
-            echo '=== PODS ==='
-            kubectl -n ${K8S_NAMESPACE} get pods -l app=wave-service -o wide
-            echo '=== DESCRIBE DEPLOYMENT ==='
-            kubectl -n ${K8S_NAMESPACE} describe deployment wave-service
-            echo '=== DESCRIBE PODS ==='
-            kubectl -n ${K8S_NAMESPACE} describe pods -l app=wave-service
-            echo '=== LOGS ==='
-            kubectl -n ${K8S_NAMESPACE} logs deployment/wave-service --tail=200
-            echo '=== LATEST EVENTS ==='
-            kubectl -n ${K8S_NAMESPACE} get events --sort-by=.metadata.creationTimestamp | tail -n 50
-          "
+          ssh ${SSH_OPTS} "${VPS_USER}@${VPS_HOST}" "bash -s -- '${K8S_NAMESPACE}'" < .github/scripts/diagnose-wave-deployment.sh
