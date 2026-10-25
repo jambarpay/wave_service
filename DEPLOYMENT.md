@@ -120,6 +120,34 @@ Le changement du template déclenche le remplacement des pods. Sans `--apply`,
 le script affiche uniquement les noms des entrées à retirer. Les valeurs ne
 sont jamais affichées. Un Deployment déjà nettoyé n’est pas modifié.
 
+### Pod en CrashLoopBackOff : JWT trop court
+
+Si les logs affichent `JWT secret must contain at least 32 bytes`, le JWT
+effectif du nouveau conteneur est invalide. Conserver la même clé et le même
+issuer que user-service ; générer une autre clé de 32 octets empêcherait la
+vérification des jetons existants.
+
+Depuis le terminal **local**, restaurer uniquement les paramètres JWT depuis
+le user-service actif, puis attendre le rollout :
+
+```bash
+ssh ubuntu@149.202.61.30 'python3 - --namespace jambarpay --apply && kubectl -n jambarpay rollout status deployment/wave-service --timeout=600s' < /home/abdoulaye/Bureau/JambarPay/wave_service/.github/scripts/restore-wave-jwt.py
+```
+
+Le script vérifie le Secret utilisé par les prochains pods, au lieu de comparer
+uniquement un ancien pod encore actif. Il copie `JWT_SECRET`, `JWT_ISSUER` et
+leurs alias `SECURITY_JWT_*` dans `wave-service-env`, puis retire les éventuelles
+entrées JWT explicites du Deployment pour utiliser cet import `envFrom`.
+Il préserve les clés PayDunya et ne redémarre pas user-service, wallet-service
+ou api-gateway. Les valeurs ne sont jamais affichées ni écrites dans des fichiers.
+
+Reporter ensuite ces mêmes paramètres dans le secret GitHub complet
+`WAVE_SERVICE_ENV` avant de redéployer : une correction Kubernetes seule sera
+écrasée par le prochain déploiement. La validation du workflow refuse désormais
+les JWT absents, trop courts, laissés en exemple ou masqués par un alias vide.
+Un alias `SECURITY_JWT_SECRET` vide a priorité sur `JWT_SECRET`, même si ce
+dernier contient une clé valide.
+
 ### Requêtes de paiement
 
 - HTTP 400 de `/api/v1/wave/checkout-links` : lire `code` et `message` du JSON.

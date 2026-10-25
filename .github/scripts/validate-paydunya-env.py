@@ -21,6 +21,15 @@ def validate(content):
             errors.append("WAVE_SERVICE_ENV : clé " + key + " absente, vide ou laissée en exemple.")
         elif value[:1] in ("'", '"') or value[-1:] in ("'", '"'):
             errors.append("WAVE_SERVICE_ENV : retirer les guillemets extérieurs de " + key + ".")
+    # A direct security.jwt.* environment property wins even when it is empty.
+    jwt = values.get("SECURITY_JWT_SECRET", values.get("JWT_SECRET", ""))
+    issuer = values.get("SECURITY_JWT_ISSUER", values.get("JWT_ISSUER", "jambaarpay-user-service"))
+    if len(jwt.encode("utf-8")) < 32 or jwt.startswith(("your-", "replace-", "valeur-")):
+        errors.append("WAVE_SERVICE_ENV : JWT effectif absent, trop court (32 octets minimum) ou laissé en exemple ; reprendre celui de user-service.")
+    elif jwt[:1] in ("'", '"') or jwt[-1:] in ("'", '"'):
+        errors.append("WAVE_SERVICE_ENV : retirer les guillemets extérieurs du JWT effectif.")
+    if not issuer:
+        errors.append("WAVE_SERVICE_ENV : issuer JWT effectif vide ; reprendre celui de user-service.")
     return errors
 
 
