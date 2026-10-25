@@ -15,4 +15,5 @@ public class CreateCheckoutLinkResponse {
 
     private String paymentUrl;
     private Instant expiresAt;
+    private boolean sandbox;
 }

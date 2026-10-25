@@ -65,9 +65,21 @@ Production checkouts keep automatic opening and do not display test-number
 instructions.
 
 For the employee balance-loading flow, a successful simulation must still be
-verified server-side by `wave-service`, then credited to the company's wallet
-by `wallet-service`, and distributed through the bulk-transfer endpoint.
-A refused widget payment has not reached these crediting steps.
+verified server-side by `wave-service`. The new `wallet-service` employee-topup
+request records recipients before checkout and commits every employee credit,
+the provider receipt and completion together. The browser no longer chains a
+company top-up and a separate bulk transfer. Repeated confirmations return the
+recorded result. A refused widget payment has not reached these crediting steps.
+
+Deploy this provider service first, then `wallet-service` (additive Flyway V3),
+then the web application. The new checkout and verification responses include
+the sandbox mode; verification also returns KkiaPay's `partnerId`. Existing
+links created before this change should be regenerated. All three API keys
+must be present before a checkout link can be created. The SDK now receives
+a numeric amount and an array for `paymentmethod`, with a single success
+listener responsible for the return redirect. See
+[`wallet_service/EMPLOYEE_TOP_UPS.md`](../wallet_service/EMPLOYEE_TOP_UPS.md)
+for the request API, recovery and sandbox acceptance checks.
 
 | Environment | `KKIAPAY_SANDBOX` | Verification API with empty `KKIAPAY_BASE_URL` |
 | --- | --- | --- |

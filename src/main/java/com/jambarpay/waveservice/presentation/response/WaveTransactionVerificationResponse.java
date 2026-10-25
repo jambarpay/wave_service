@@ -19,4 +19,6 @@ public class WaveTransactionVerificationResponse {
     private String source;
     private String reason;
     private String failureMessage;
+    private String partnerId;
+    private boolean sandbox;
 }

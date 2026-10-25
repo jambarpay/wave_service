@@ -46,6 +46,7 @@ public class WaveController implements WaveApi {
                 CreateCheckoutLinkResponse.builder()
                         .paymentUrl(result.paymentUrl())
                         .expiresAt(result.expiresAt())
+                        .sandbox(result.sandbox())
                         .build()
         );
     }
@@ -78,6 +79,8 @@ public class WaveController implements WaveApi {
                         .source(result.source())
                         .reason(result.reason())
                         .failureMessage(result.failureMessage())
+                        .partnerId(result.partnerId())
+                        .sandbox(result.sandbox())
                         .build()
         );
     }

@@ -13,6 +13,7 @@ public record WaveCheckoutLinkPayload(
         String partnerId,
         String logoUrl,
         String theme,
-        Instant expiresAt
+        Instant expiresAt,
+        Boolean sandbox
 ) {
 }

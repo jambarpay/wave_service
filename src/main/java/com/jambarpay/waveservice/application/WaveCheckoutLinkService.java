@@ -58,6 +58,9 @@ public class WaveCheckoutLinkService {
             String fallbackBaseUrl
     ) {
         ensurePublicKeyIsConfigured();
+        if (!hasText(kkiapayProperties.getPrivateKey()) || !hasText(kkiapayProperties.getSecretKey())) {
+            throw new DomainException("KKIAPAY server credentials are not configured");
+        }
         validateCallbackUrl(request.getCallbackUrl());
         ensureLinkTtlIsValid();
 
@@ -79,7 +82,8 @@ public class WaveCheckoutLinkService {
                 normalizeBlank(request.getPartnerId()),
                 logoUrl,
                 theme,
-                expiresAt
+                expiresAt,
+                kkiapayProperties.isSandbox()
         );
 
         String token = sign(payload);
@@ -87,7 +91,8 @@ public class WaveCheckoutLinkService {
 
         return new WaveCheckoutLinkResult(
                 baseUrl + "/api/v1/wave/checkout/" + token,
-                expiresAt
+                expiresAt,
+                kkiapayProperties.isSandbox()
         );
     }
 
@@ -97,6 +102,9 @@ public class WaveCheckoutLinkService {
 
         if (payload.expiresAt() == null || !Instant.now(clock).isBefore(payload.expiresAt())) {
             throw new DomainException("Checkout link has expired");
+        }
+        if (payload.sandbox() == null || payload.sandbox() != kkiapayProperties.isSandbox()) {
+            throw new DomainException("Payment environment changed; create a new checkout link");
         }
 
         return """
@@ -176,23 +184,36 @@ public class WaveCheckoutLinkService {
                     %s
                     <div class="amount">%s FCFA</div>
                     <button id="pay-button" type="button">Payer maintenant</button>
+                    <p id="payment-error" role="alert" hidden></p>
                     <div class="hint">Cliquez sur « Payer maintenant » pour ouvrir ou rouvrir le widget.</div>
                   </div>
                   <script>
                     const checkout = %s;
-                    function openCheckout() {
-                      openKkiapayWidget(checkout);
+                    const returnUrl = "%s";
+                    function showPaymentError(message) {
+                      const error = document.getElementById("payment-error");
+                      error.textContent = message;
+                      error.hidden = false;
                     }
-                    addSuccessListener(response => {
-                      if (!checkout.callback) {
+                    function openCheckout() {
+                      if (typeof openKkiapayWidget !== "function") {
+                        showPaymentError("Le service de paiement n’a pas pu être chargé. Actualisez cette page.");
                         return;
                       }
-                      const redirectUrl = new URL(checkout.callback);
-                      if (response && response.transactionId) {
-                        redirectUrl.searchParams.set("transactionId", response.transactionId);
+                      openKkiapayWidget(checkout);
+                    }
+                    if (typeof addSuccessListener === "function") addSuccessListener(response => {
+                      if (!response || !response.transactionId) {
+                        showPaymentError("La référence du paiement est indisponible. Conservez cette page et contactez l’assistance.");
+                        return;
                       }
+                      const redirectUrl = new URL(returnUrl);
+                      redirectUrl.searchParams.set("transactionId", response.transactionId);
                       redirectUrl.searchParams.set("status", "success");
                       window.location.href = redirectUrl.toString();
+                    });
+                    if (typeof addFailedListener === "function") addFailedListener(() => {
+                      showPaymentError("Le paiement n’a pas abouti. Consultez le message affiché par KkiaPay.");
                     });
                     document.getElementById("pay-button").addEventListener("click", openCheckout);
                     if (!checkout.sandbox) {
@@ -205,7 +226,8 @@ public class WaveCheckoutLinkService {
                 escapeHtml(payload.theme()),
                 sandboxInstructions(),
                 escapeHtml(payload.amount().toPlainString()),
-                buildCheckoutJavascriptObjectInternal(payload)
+                buildCheckoutJavascriptObjectInternal(payload),
+                escapeJavascript(payload.callbackUrl())
         );
     }
 
@@ -345,16 +367,17 @@ public class WaveCheckoutLinkService {
     private String buildCheckoutJavascriptObjectInternal(WaveCheckoutLinkPayload payload) {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
-        appendJavascriptProperty(builder, "amount", payload.amount().toPlainString());
+        builder.append("amount:").append(payload.amount().toPlainString()).append(",");
         appendJavascriptProperty(builder, "position", "center");
-        appendJavascriptProperty(builder, "callback", payload.callbackUrl());
         appendJavascriptProperty(builder, "theme", payload.theme());
         appendJavascriptProperty(builder, "key", kkiapayProperties.getPublicKey());
         appendJavascriptProperty(builder, "url", payload.logoUrl());
         appendJavascriptProperty(builder, "name", payload.name());
         appendJavascriptProperty(builder, "email", payload.email());
         appendJavascriptProperty(builder, "phone", payload.phone());
-        appendJavascriptProperty(builder, "paymentmethod", payload.paymentMethod());
+        if (hasText(payload.paymentMethod())) {
+            builder.append("paymentmethod:[\"").append(escapeJavascript(payload.paymentMethod())).append("\"],");
+        }
         appendJavascriptProperty(builder, "partnerId", payload.partnerId());
         builder.append("sandbox:").append(kkiapayProperties.isSandbox());
         builder.append("}");

@@ -28,6 +28,8 @@ class WaveCheckoutLinkServiceTest {
 
         KkiapayProperties kkiapayProperties = new KkiapayProperties();
         kkiapayProperties.setPublicKey("public-key");
+        kkiapayProperties.setPrivateKey("test-private-key");
+        kkiapayProperties.setSecretKey("test-secret-key");
         kkiapayProperties.setSecretKey("secret-key");
         kkiapayProperties.setSandbox(true);
 
@@ -59,6 +61,7 @@ class WaveCheckoutLinkServiceTest {
         assertEquals("https://example.com/payments/complete", payload.callbackUrl());
         assertEquals("Diali", payload.name());
         assertEquals("momo", payload.paymentMethod());
+        assertTrue(result.sandbox());
     }
 
     @Test
@@ -69,6 +72,8 @@ class WaveCheckoutLinkServiceTest {
 
         KkiapayProperties kkiapayProperties = new KkiapayProperties();
         kkiapayProperties.setPublicKey("public-key");
+        kkiapayProperties.setPrivateKey("test-private-key");
+        kkiapayProperties.setSecretKey("test-secret-key");
 
         WaveCheckoutLinkService service = new WaveCheckoutLinkService(
                 new ObjectMapper().findAndRegisterModules(),
@@ -98,6 +103,10 @@ class WaveCheckoutLinkServiceTest {
         assertTrue(html.contains("https://www.jambaarpay.com/enterprise-employees/charge-balances"));
         assertTrue(html.contains("https://cdn.kkiapay.me/k.js"));
         assertTrue(html.contains("openKkiapayWidget(checkout)"));
+        assertTrue(html.contains("amount:2500"));
+        assertTrue(html.contains("paymentmethod:[\"momo\"]"));
+        assertTrue(html.contains("partnerId:\"employee_topup_test\""));
+        assertFalse(html.contains("callback:"), "Only the success listener controls the return redirect");
     }
 
     @Test
@@ -121,6 +130,8 @@ class WaveCheckoutLinkServiceTest {
         checkout.setSigningSecret("checkout-secret-with-at-least-32-bytes");
         KkiapayProperties kkiapay = new KkiapayProperties();
         kkiapay.setPublicKey("test-public-key");
+        kkiapay.setPrivateKey("test-private-key");
+        kkiapay.setSecretKey("test-secret-key");
         kkiapay.setSandbox(false);
         WaveCheckoutLinkService service = new WaveCheckoutLinkService(new ObjectMapper().findAndRegisterModules(),
                 checkout, kkiapay, Clock.fixed(Instant.parse("2026-08-02T10:00:00Z"), ZoneOffset.UTC));
@@ -154,12 +165,35 @@ class WaveCheckoutLinkServiceTest {
         assertEquals("Checkout link has expired", error.getMessage());
     }
 
+    @Test
+    void shouldRejectLinksWhenThePaymentEnvironmentHasChanged() {
+        String token = checkoutToken(checkoutService(Instant.parse("2026-08-02T10:00:00Z")));
+        var production = checkoutService(Instant.parse("2026-08-02T10:00:00Z"), false);
+        assertThrows(DomainException.class, () -> production.renderCheckoutPage(token));
+    }
+
+    @Test
+    void shouldRejectCheckoutBeforePaymentWhenVerificationCredentialsAreMissing() {
+        var kkiapay = new KkiapayProperties();
+        kkiapay.setPublicKey("test-public-key");
+        var service = new WaveCheckoutLinkService(new ObjectMapper(), new WaveCheckoutProperties(), kkiapay);
+        assertEquals("KKIAPAY server credentials are not configured",
+                assertThrows(DomainException.class, () -> checkoutToken(service)).getMessage());
+    }
+
     private WaveCheckoutLinkService checkoutService(Instant now) {
+        return checkoutService(now, true);
+    }
+
+    private WaveCheckoutLinkService checkoutService(Instant now, boolean sandbox) {
         WaveCheckoutProperties checkout = new WaveCheckoutProperties();
         checkout.setPublicBaseUrl("https://jambaarpay.com");
         checkout.setSigningSecret("checkout-secret-with-at-least-32-bytes");
         KkiapayProperties kkiapay = new KkiapayProperties();
         kkiapay.setPublicKey("test-public-key");
+        kkiapay.setPrivateKey("test-private-key");
+        kkiapay.setSecretKey("test-secret-key");
+        kkiapay.setSandbox(sandbox);
         return new WaveCheckoutLinkService(new ObjectMapper().findAndRegisterModules(), checkout, kkiapay,
                 Clock.fixed(now, ZoneOffset.UTC));
     }
@@ -168,6 +202,7 @@ class WaveCheckoutLinkServiceTest {
         WaveCheckoutLinkResult result = service.createCheckoutLink(CreateCheckoutLinkRequest.builder()
                 .amount(new BigDecimal("2500"))
                 .callbackUrl("https://www.jambaarpay.com/enterprise-employees/charge-balances")
+                .paymentMethod("momo").partnerId("employee_topup_test")
                 .build(), "http://localhost:8088");
         return result.paymentUrl().substring(result.paymentUrl().lastIndexOf('/') + 1);
     }

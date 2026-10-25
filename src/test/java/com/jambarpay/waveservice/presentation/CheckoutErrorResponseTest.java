@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CheckoutErrorResponseTest {
     @ParameterizedTest
     @CsvSource({
-            "'', Checkout signing secret is not configured",
+            "'', Checkout signing secret must contain at least 32 bytes",
             "too-short, Checkout signing secret must contain at least 32 bytes"
     })
     void invalidSigningSecretReturnsAMessageTheWebClientCanDisplay(String secret, String message) throws Exception {
@@ -30,6 +30,8 @@ class CheckoutErrorResponseTest {
         checkout.setSigningSecret(secret);
         KkiapayProperties kkiapay = new KkiapayProperties();
         kkiapay.setPublicKey("test-public-key");
+        kkiapay.setPrivateKey("test-private-key");
+        kkiapay.setSecretKey("test-secret-key");
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new WaveController(
                         new WaveCheckoutLinkService(new ObjectMapper().findAndRegisterModules(), checkout, kkiapay),
                         mock(WaveVerificationService.class)))

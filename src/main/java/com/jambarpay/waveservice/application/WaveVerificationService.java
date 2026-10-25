@@ -63,12 +63,14 @@ public class WaveVerificationService {
         }
 
         return new WaveTransactionVerificationResult(
-                truncate(response.transactionId() != null ? response.transactionId() : transactionId),
+                truncate(response.transactionId()),
                 response.amount(),
                 truncate(response.status()),
                 truncate(response.source()),
                 truncate(response.reason()),
-                truncate(response.failureMessage())
+                truncate(response.failureMessage()),
+                truncate(response.partnerId()),
+                properties.isSandbox()
         );
     }
 
@@ -109,7 +111,8 @@ public class WaveVerificationService {
             String source,
             String transactionId,
             String reason,
-            String failureMessage
+            String failureMessage,
+            String partnerId
     ) {
     }
 }

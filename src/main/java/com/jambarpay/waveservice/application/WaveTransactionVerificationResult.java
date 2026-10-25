@@ -8,6 +8,8 @@ public record WaveTransactionVerificationResult(
         String status,
         String source,
         String reason,
-        String failureMessage
+        String failureMessage,
+        String partnerId,
+        boolean sandbox
 ) {
 }
