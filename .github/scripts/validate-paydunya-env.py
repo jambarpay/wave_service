@@ -21,6 +21,10 @@ def validate(content):
             errors.append("WAVE_SERVICE_ENV : clé " + key + " absente, vide ou laissée en exemple.")
         elif value[:1] in ("'", '"') or value[-1:] in ("'", '"'):
             errors.append("WAVE_SERVICE_ENV : retirer les guillemets extérieurs de " + key + ".")
+        if key in ("PAYDUNYA_MASTER_KEY", "PAYDUNYA_PRIVATE_KEY") and value.startswith(("test_public_", "live_public_")):
+            errors.append("WAVE_SERVICE_ENV : " + key + " contient une clé publique ; copier le champ "
+                          + ("Master Key" if key == "PAYDUNYA_MASTER_KEY" else "Private Key")
+                          + " de l’application PayDunya.")
     # A direct security.jwt.* environment property wins even when it is empty.
     jwt = values.get("SECURITY_JWT_SECRET", values.get("JWT_SECRET", ""))
     issuer = values.get("SECURITY_JWT_ISSUER", values.get("JWT_ISSUER", "jambaarpay-user-service"))

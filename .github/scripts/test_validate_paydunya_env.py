@@ -26,6 +26,18 @@ class PayDunyaEnvironmentTest(unittest.TestCase):
         errors = validator.validate("JWT_SECRET=short\nSECURITY_JWT_SECRET=" + "é" * 16 + "\n")
         self.assertFalse(any("JWT effectif" in error for error in errors))
 
+    def test_refuses_a_public_key_used_as_master_or_private_key_without_revealing_it(self):
+        for key in ("PAYDUNYA_MASTER_KEY", "PAYDUNYA_PRIVATE_KEY"):
+            for prefix in ("test_public_", "live_public_"):
+                with self.subTest(key=key, prefix=prefix):
+                    public_key = prefix + "fixture-sensitive-value"
+                    content = ("PAYDUNYA_SANDBOX=true\nPAYDUNYA_MASTER_KEY=actual-master\n"
+                               "PAYDUNYA_PRIVATE_KEY=actual-private\nPAYDUNYA_TOKEN=actual-token\n"
+                               "JWT_SECRET=test-secret-with-at-least-32-bytes\n" + key + "=" + public_key + "\n")
+                    errors = validator.validate(content)
+                    self.assertTrue(any(key in error and "clé publique" in error for error in errors))
+                    self.assertNotIn(public_key, "\n".join(errors))
+
     def test_refuses_missing_keys_live_mode_placeholders_and_outer_quotes_without_printing_values(self):
         for text in ("", "PAYDUNYA_SANDBOX=false\n", "PAYDUNYA_MASTER_KEY=your-master-key\n",
                      'PAYDUNYA_MASTER_KEY="sensitive-value"\n'):

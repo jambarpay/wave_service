@@ -25,6 +25,11 @@ Elles sont utilisées uniquement par le serveur dans les en-têtes
 `PAYDUNYA-MASTER-KEY`, `PAYDUNYA-PRIVATE-KEY` et `PAYDUNYA-TOKEN`.
 La clé publique n’est pas nécessaire à cette API HTTP/JSON. Ne pas ajouter de
 clés PayDunya dans Angular. Utiliser des valeurs sans guillemets extérieurs.
+Le champ `PAYDUNYA_MASTER_KEY` doit contenir la valeur du champ **Master Key**
+du tableau de bord PayDunya. Une clé préfixée `test_public_` ou `live_public_`
+est une clé publique ; la renseigner comme Master Key provoque un refus
+d’authentification. La validation du workflow détecte cette confusion, mais
+ne vérifie pas les clés auprès de PayDunya.
 
 Les variables `KKIAPAY_*` et `WAVE_CHECKOUT_*` ne sont plus utilisées.
 `WAVE_PUBLIC_BASE_URL` n’est plus nécessaire : la page est hébergée par PayDunya.
@@ -138,7 +143,13 @@ sys.stdout.write("".join(key + "=" + values[key] + "\n" for key in sorted(values
 
 Ouvrir le fichier indiqué dans un éditeur, copier son contenu complet dans
 **Settings → Secrets and variables → Actions → WAVE_SERVICE_ENV** du dépôt
-wave_service, puis enregistrer et relancer le workflow. Le fichier contient
+wave_service, puis cliquer sur **Update secret**. Pour utiliser le workflow
+corrigé, lancer **Actions → Deploy On Main → Run workflow → branche main**.
+Une relance **Re-run jobs** d’une ancienne exécution conserve son commit
+d’origine, donc aussi son ancienne version du workflow
+([documentation GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)).
+La nouvelle exécution doit commencer par l’étape `Test deployment scripts`.
+Le fichier contient
 les clés : ne pas le partager ni le committer, et le supprimer après la copie.
 Les alias `SECURITY_JWT_*` font partie de la configuration à conserver.
 
@@ -195,6 +206,10 @@ dernier contient une clé valide.
 ### Requêtes de paiement
 
 - HTTP 400 de `/api/v1/wave/checkout-links` : lire `code` et `message` du JSON.
+- Si `PAYDUNYA_MASTER_KEY` contient une clé publique, corriger sa valeur dans
+  le secret GitHub complet `WAVE_SERVICE_ENV` avec la véritable Master Key,
+  conserver `PAYDUNYA_SANDBOX=true`, puis déployer wave_service. Ne pas déduire
+  la signification d’un code fournisseur à partir d’une autre API PayDunya.
 - Les refus locaux utilisent des codes distincts : `PAYMENT_KEYS_MISSING`,
   `PAYMENT_STORE_MISSING`, `PAYMENT_RETURN_URL_INVALID`, `PAYMENT_AMOUNT_INVALID`,
   `PAYMENT_LINK_INVALID` ou `PAYMENT_REQUEST_INVALID`. Ils sont journalisés sous
