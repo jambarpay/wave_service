@@ -34,9 +34,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate PayDunya sandbox configuration
+      - name: Test deployment scripts
         run: |
           python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+
+      - name: Validate PayDunya sandbox configuration
+        run: |
           printf '%s\n' "${WAVE_SERVICE_ENV}" | python3 .github/scripts/validate-paydunya-env.py
 
       - name: Set up JDK 17
@@ -99,6 +102,7 @@ jobs:
           scp ${SSH_OPTS} deploy/manifest.yaml deploy/service.env deploy/reconcile-wave-service-env.py "${VPS_USER}@${VPS_HOST}:/tmp/${GITHUB_REPOSITORY#*/}-wave-service/"
 
       - name: Deploy to Kubernetes
+        id: deploy_kubernetes
         env:
           SSH_OPTS: -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6
         run: |
@@ -119,7 +123,7 @@ jobs:
           "
 
       - name: Diagnose deployment
-        if: always()
+        if: ${{ !cancelled() && (steps.deploy_kubernetes.outcome == 'success' || steps.deploy_kubernetes.outcome == 'failure') }}
         env:
           SSH_OPTS: -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6
         run: |

@@ -98,6 +98,18 @@ callback non implémenté n’est envoyé à PayDunya.
 
 ## Diagnostic
 
+### Validation GitHub Actions bloquée
+
+L’étape `Validate PayDunya sandbox configuration` contrôle le secret GitHub
+`WAVE_SERVICE_ENV` avant la construction de l’image et toute connexion au VPS.
+Déplier cette étape pour lire les noms des variables à corriger, sans publier
+leurs valeurs. Une correction effectuée uniquement sur Kubernetes ne met pas
+à jour ce secret GitHub.
+
+Les tests des scripts ont leur propre étape. Le diagnostic SSH s’exécute
+uniquement après une tentative de déploiement Kubernetes ; un refus de la
+validation ne déclenche pas de connexion SSH.
+
 ### Pod bloqué sur une ancienne clé KkiaPay
 
 Si les événements indiquent `CreateContainerConfigError` et
