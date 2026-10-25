@@ -110,6 +110,38 @@ Les tests des scripts ont leur propre étape. Le diagnostic SSH s’exécute
 uniquement après une tentative de déploiement Kubernetes ; un refus de la
 validation ne déclenche pas de connexion SSH.
 
+Si la restauration du JWT sur le VPS a réussi mais que GitHub refuse encore
+le JWT, récupérer le secret Kubernetes corrigé dans un fichier local privé.
+Exécuter ce bloc depuis le terminal **local**, après la restauration décrite
+plus bas. Il ne modifie ni le cluster ni GitHub et vérifie la configuration
+avant d’afficher le chemin du fichier :
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  payment_env_file=$(mktemp /tmp/wave-service-github.XXXXXX.env)
+  ssh ubuntu@149.202.61.30 'kubectl -n jambarpay get secret wave-service-env -o json' |
+    python3 -c '
+import base64, json, re, sys
+data = json.load(sys.stdin)["data"]
+values = {key: base64.b64decode(value, validate=True).decode("utf-8") for key, value in data.items()}
+if not values or any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key)
+                     or any(c in value for c in "\r\n\0") for key, value in values.items()):
+    raise SystemExit("Export impossible : format incompatible avec un fichier env.")
+sys.stdout.write("".join(key + "=" + values[key] + "\n" for key in sorted(values)))
+' > "$payment_env_file"
+  python3 /home/abdoulaye/Bureau/JambarPay/wave_service/.github/scripts/validate-paydunya-env.py < "$payment_env_file"
+  printf 'Fichier privé à ouvrir dans un éditeur : %s\n' "$payment_env_file"
+)
+```
+
+Ouvrir le fichier indiqué dans un éditeur, copier son contenu complet dans
+**Settings → Secrets and variables → Actions → WAVE_SERVICE_ENV** du dépôt
+wave_service, puis enregistrer et relancer le workflow. Le fichier contient
+les clés : ne pas le partager ni le committer, et le supprimer après la copie.
+Les alias `SECURITY_JWT_*` font partie de la configuration à conserver.
+
 ### Pod bloqué sur une ancienne clé KkiaPay
 
 Si les événements indiquent `CreateContainerConfigError` et
