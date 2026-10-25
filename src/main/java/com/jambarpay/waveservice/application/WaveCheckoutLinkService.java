@@ -119,6 +119,7 @@ public class WaveCheckoutLinkService {
                       color: #1f2937;
                     }
                     .card {
+                      box-sizing: border-box;
                       width: min(92vw, 520px);
                       background: white;
                       border-radius: 20px;
@@ -155,15 +156,27 @@ public class WaveCheckoutLinkService {
                       font-size: 13px;
                       color: #6b7280;
                     }
+                    .sandbox-notice {
+                      margin: 16px 0;
+                      padding: 14px;
+                      background: #fff7ed;
+                      border: 1px solid #fdba74;
+                      border-radius: 12px;
+                      line-height: 1.5;
+                    }
+                    .sandbox-notice p {
+                      margin: 8px 0;
+                    }
                   </style>
                 </head>
                 <body>
                   <div class="card">
                     <h1>Paiement JambarPay</h1>
                     <p>Ce lien ouvre le widget Kkiapay pour finaliser le paiement.</p>
+                    %s
                     <div class="amount">%s FCFA</div>
                     <button id="pay-button" type="button">Payer maintenant</button>
-                    <div class="hint">Si le widget ne s'ouvre pas automatiquement, clique sur le bouton.</div>
+                    <div class="hint">Cliquez sur « Payer maintenant » pour ouvrir ou rouvrir le widget.</div>
                   </div>
                   <script>
                     const checkout = %s;
@@ -182,15 +195,34 @@ public class WaveCheckoutLinkService {
                       window.location.href = redirectUrl.toString();
                     });
                     document.getElementById("pay-button").addEventListener("click", openCheckout);
-                    window.addEventListener("load", openCheckout);
+                    if (!checkout.sandbox) {
+                      window.addEventListener("load", openCheckout);
+                    }
                   </script>
                 </body>
                 </html>
                 """.formatted(
                 escapeHtml(payload.theme()),
+                sandboxInstructions(),
                 escapeHtml(payload.amount().toPlainString()),
                 buildCheckoutJavascriptObjectInternal(payload)
         );
+    }
+
+    private String sandboxInstructions() {
+        if (!kkiapayProperties.isSandbox()) {
+            return "";
+        }
+        return """
+                <aside class="sandbox-notice" aria-label="Instructions du mode test">
+                  <strong>Mode test KkiaPay : aucun paiement réel</strong>
+                  <p>Utilisez les numéros de test fournis par KkiaPay.
+                  Pour simuler un paiement réussi, choisissez MTN Bénin et saisissez
+                  <strong>61000000</strong> dans le widget.</p>
+                  <a href="https://docs.kkiapay.me/v1/compte/kkiapay-sandbox-guide-de-test"
+                     target="_blank" rel="noopener noreferrer">Consulter les scénarios de test KkiaPay</a>
+                </aside>
+                """;
     }
 
     WaveCheckoutLinkPayload verifyAndRead(String token) {

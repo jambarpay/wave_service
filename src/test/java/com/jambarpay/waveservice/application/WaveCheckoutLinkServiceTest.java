@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -96,6 +97,39 @@ class WaveCheckoutLinkServiceTest {
 
         assertTrue(html.contains("https://www.jambaarpay.com/enterprise-employees/charge-balances"));
         assertTrue(html.contains("https://cdn.kkiapay.me/k.js"));
+        assertTrue(html.contains("openKkiapayWidget(checkout)"));
+    }
+
+    @Test
+    void shouldExplainDocumentedSandboxPaymentBeforeOpeningTheWidget() {
+        WaveCheckoutLinkService service = checkoutService(Instant.parse("2026-08-02T10:00:00Z"));
+
+        String html = service.renderCheckoutPage(checkoutToken(service));
+
+        assertTrue(html.contains("Mode test KkiaPay : aucun paiement réel"));
+        assertTrue(html.contains("choisissez MTN Bénin"));
+        assertTrue(html.contains("61000000"));
+        assertTrue(html.contains("https://docs.kkiapay.me/v1/compte/kkiapay-sandbox-guide-de-test"));
+        assertTrue(html.contains("sandbox:true"));
+        assertTrue(html.indexOf("Mode test KkiaPay") < html.indexOf("openKkiapayWidget(checkout)"));
+    }
+
+    @Test
+    void shouldNotDisplayTestNumbersWhenTheCheckoutUsesProduction() {
+        WaveCheckoutProperties checkout = new WaveCheckoutProperties();
+        checkout.setPublicBaseUrl("https://www.jambaarpay.com");
+        checkout.setSigningSecret("checkout-secret-with-at-least-32-bytes");
+        KkiapayProperties kkiapay = new KkiapayProperties();
+        kkiapay.setPublicKey("test-public-key");
+        kkiapay.setSandbox(false);
+        WaveCheckoutLinkService service = new WaveCheckoutLinkService(new ObjectMapper().findAndRegisterModules(),
+                checkout, kkiapay, Clock.fixed(Instant.parse("2026-08-02T10:00:00Z"), ZoneOffset.UTC));
+
+        String html = service.renderCheckoutPage(checkoutToken(service));
+
+        assertFalse(html.contains("Mode test KkiaPay"));
+        assertFalse(html.contains("61000000"));
+        assertTrue(html.contains("sandbox:false"));
         assertTrue(html.contains("openKkiapayWidget(checkout)"));
     }
 
