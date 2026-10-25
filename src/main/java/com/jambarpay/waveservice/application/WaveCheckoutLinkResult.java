@@ -5,6 +5,8 @@ import java.time.Instant;
 public record WaveCheckoutLinkResult(
         String paymentUrl,
         Instant expiresAt,
-        boolean sandbox
+        boolean sandbox,
+        String provider,
+        String checkoutToken
 ) {
 }

@@ -9,3 +9,5 @@ src/main/.env
 .vscode/
 *.iml
 HELP.md
+__pycache__/
+*.py[cod]

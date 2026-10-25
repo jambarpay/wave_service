@@ -1,51 +1,29 @@
 package com.jambarpay.waveservice.presentation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jambarpay.waveservice.application.PayDunyaClient;
 import com.jambarpay.waveservice.application.WaveCheckoutLinkService;
 import com.jambarpay.waveservice.application.WaveVerificationService;
-import com.jambarpay.waveservice.config.KkiapayProperties;
-import com.jambarpay.waveservice.config.WaveCheckoutProperties;
+import com.jambarpay.waveservice.config.PayDunyaProperties;
 import com.jambarpay.waveservice.presentation.controller.WaveController;
 import com.jambarpay.waveservice.presentation.exception.GlobalExceptionHandler;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-
+import org.springframework.web.client.RestClient;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class CheckoutErrorResponseTest {
-    @ParameterizedTest
-    @CsvSource({
-            "'', Checkout signing secret must contain at least 32 bytes",
-            "too-short, Checkout signing secret must contain at least 32 bytes"
-    })
-    void invalidSigningSecretReturnsAMessageTheWebClientCanDisplay(String secret, String message) throws Exception {
-        WaveCheckoutProperties checkout = new WaveCheckoutProperties();
-        checkout.setPublicBaseUrl("https://jambaarpay.com");
-        checkout.setSigningSecret(secret);
-        KkiapayProperties kkiapay = new KkiapayProperties();
-        kkiapay.setPublicKey("test-public-key");
-        kkiapay.setPrivateKey("test-private-key");
-        kkiapay.setSecretKey("test-secret-key");
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new WaveController(
-                        new WaveCheckoutLinkService(new ObjectMapper().findAndRegisterModules(), checkout, kkiapay),
-                        mock(WaveVerificationService.class)))
+    @Test
+    void missingPayDunyaKeysReturnAnExplicitMessage() throws Exception {
+        var properties = new PayDunyaProperties();
+        var service = new WaveCheckoutLinkService(new PayDunyaClient(RestClient.builder(), properties), properties);
+        var mvc = MockMvcBuilders.standaloneSetup(new WaveController(service, mock(WaveVerificationService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-
-        mvc.perform(post("/api/v1/wave/checkout-links")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"amount":2500,
-                                 "callbackUrl":"https://www.jambaarpay.com/enterprise-employees/charge-balances",
-                                 "paymentMethod":"momo"}
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PAYMENT_REQUEST_REJECTED"))
-                .andExpect(jsonPath("$.message").value(message));
+        mvc.perform(post("/api/v1/wave/checkout-links").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":2500,\"callbackUrl\":\"https://jambaarpay.com/return\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PAYMENT_REQUEST_REJECTED"))
+                .andExpect(jsonPath("$.message").value("Les clés API PayDunya ne sont pas configurées."));
     }
 }

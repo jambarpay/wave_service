@@ -1,118 +1,62 @@
 package com.jambarpay.waveservice.application;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.jambarpay.waveservice.config.KkiapayProperties;
+import com.jambarpay.waveservice.config.PayDunyaProperties;
 import com.jambarpay.waveservice.domain.exception.DomainException;
-import com.jambarpay.waveservice.domain.exception.DownstreamServiceUnavailableException;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Locale;
 
 @Service
 public class WaveVerificationService {
+    private final PayDunyaClient client;
+    private final PayDunyaProperties properties;
 
-    private static final String SANDBOX_BASE_URL = "https://api-sandbox.kkiapay.me";
-    private static final String PRODUCTION_BASE_URL = "https://api.kkiapay.me";
-    private static final String TRANSACTION_STATUS_PATH = "/api/v1/transactions/status";
-
-    private final RestClient restClient;
-    private final KkiapayProperties properties;
-
-    public WaveVerificationService(
-            RestClient.Builder restClientBuilder,
-            KkiapayProperties properties
-    ) {
+    public WaveVerificationService(PayDunyaClient client, PayDunyaProperties properties) {
+        this.client = client;
         this.properties = properties;
-        this.restClient = restClientBuilder
-                .baseUrl(resolveBaseUrl(properties))
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
     }
 
-    public WaveTransactionVerificationResult verifyTransaction(String transactionId) {
-        if (transactionId == null || transactionId.isBlank() || transactionId.trim().length() > 255) {
-            throw new DomainException("Transaction id is required");
+    public WaveTransactionVerificationResult verifyTransaction(String token) {
+        var response = client.confirm(token);
+        String hash = response.path("hash").asText();
+        String mode = response.path("mode").asText();
+        var invoice = response.path("invoice");
+        if (!validHash(hash) || !(properties.isSandbox() ? "test" : "live").equals(mode)
+                || !token.equals(invoice.path("token").asText())) {
+            throw new DomainException("La réponse de vérification PayDunya ne correspond pas à cette facture ou à ce mode.");
         }
-
-        transactionId = transactionId.trim();
-
-        ensureCredentialsAreConfigured();
-
-        KkiapayTransactionStatusResponse response;
+        BigDecimal amount;
         try {
-            response = restClient.post()
-                    .uri(TRANSACTION_STATUS_PATH)
-                    .header("x-api-key", properties.getPublicKey())
-                    .header("x-secret-key", properties.getSecretKey())
-                    .header("x-private-key", properties.getPrivateKey())
-                    .body(new KkiapayTransactionStatusRequest(transactionId))
-                    .retrieve()
-                    .body(KkiapayTransactionStatusResponse.class);
-        } catch (RestClientException exception) {
-            throw new DownstreamServiceUnavailableException(
-                    "KKIAPAY verification is currently unavailable"
-            );
+            amount = new BigDecimal(invoice.path("total_amount").asText());
+            if (amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) throw new NumberFormatException();
+        } catch (NumberFormatException exception) {
+            throw new DomainException("Le montant de la facture PayDunya est invalide.");
         }
+        String status = switch (response.path("status").asText().toLowerCase(Locale.ROOT)) {
+            case "completed" -> "SUCCESS";
+            case "pending" -> "PENDING";
+            case "cancelled" -> "CANCELLED";
+            case "failed" -> "FAILED";
+            default -> throw new DomainException("Le statut de la facture PayDunya est inconnu.");
+        };
+        var reference = response.path("custom_data").path("payment_reference");
+        return new WaveTransactionVerificationResult(token, amount, status, "PAYDUNYA", null, null,
+                reference.isTextual() ? reference.asText() : null, properties.isSandbox());
+    }
 
-        if (response == null) {
-            throw new DomainException("KKIAPAY verification returned an empty response");
+    private boolean validHash(String supplied) {
+        try {
+            byte[] expected = MessageDigest.getInstance("SHA-512")
+                    .digest(properties.getMasterKey().getBytes(StandardCharsets.UTF_8));
+            return supplied.matches("[A-Fa-f0-9]{128}")
+                    && MessageDigest.isEqual(expected, HexFormat.of().parseHex(supplied));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-512 unavailable", exception);
         }
-
-        return new WaveTransactionVerificationResult(
-                truncate(response.transactionId()),
-                response.amount(),
-                truncate(response.status()),
-                truncate(response.source()),
-                truncate(response.reason()),
-                truncate(response.failureMessage()),
-                truncate(response.partnerId()),
-                properties.isSandbox()
-        );
-    }
-
-    private void ensureCredentialsAreConfigured() {
-        if (isBlank(properties.getPublicKey())
-                || isBlank(properties.getPrivateKey())
-                || isBlank(properties.getSecretKey())) {
-            throw new DomainException("KKIAPAY credentials are not configured");
-        }
-    }
-
-    private static String resolveBaseUrl(KkiapayProperties properties) {
-        if (!isBlank(properties.getBaseUrl())) {
-            return properties.getBaseUrl();
-        }
-
-        return properties.isSandbox() ? SANDBOX_BASE_URL : PRODUCTION_BASE_URL;
-    }
-
-    private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
-
-    private static String truncate(String value) {
-        if (value == null || value.length() <= 512) {
-            return value;
-        }
-        return value.substring(0, 512);
-    }
-
-    private record KkiapayTransactionStatusRequest(String transactionId) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record KkiapayTransactionStatusResponse(
-            String status,
-            BigDecimal amount,
-            String source,
-            String transactionId,
-            String reason,
-            String failureMessage,
-            String partnerId
-    ) {
     }
 }

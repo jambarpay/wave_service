@@ -34,6 +34,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate PayDunya sandbox configuration
+        run: |
+          python3 -m unittest discover -s .github/scripts -p 'test_validate_paydunya_env.py' -v
+          printf '%s\n' "${WAVE_SERVICE_ENV}" | python3 .github/scripts/validate-paydunya-env.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

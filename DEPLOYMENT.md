@@ -1,144 +1,114 @@
-# Wave Service Deployment
+# Paiements PayDunya en sandbox
 
-## GitHub secrets
+Le service conserve son nom Kubernetes `wave-service` et ses routes
+`/api/v1/wave` pour être compatible avec la passerelle. Il utilise désormais
+PayDunya HTTP/JSON avec redirection vers la page du fournisseur.
 
-- `VPS_HOST`
-- `VPS_USER`
-- `VPS_SSH_KEY`
-- `VPS_KNOWN_HOSTS`
-- `GHCR_PULL_USERNAME`
-- `GHCR_PULL_TOKEN`
-- `WAVE_SERVICE_ENV`
+Documentation officielle : https://developers.paydunya.com/doc/FR/http_json
 
-## GitHub variables
+## Configuration
 
-- `K8S_NAMESPACE=jambarpay`
-
-## `WAVE_SERVICE_ENV`
+Dans le dépôt GitHub de wave_service, modifier **Settings → Secrets and variables
+→ Actions → WAVE_SERVICE_ENV**. Conserver les variables Eureka, les ports et
+le JWT existants, et remplacer le bloc KkiaPay par :
 
 ```env
-WAVE_SERVICE_NAME=wave-service
-WAVE_SERVICE_PORT=8088
-EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
-EUREKA_REGISTER=true
-EUREKA_FETCH=true
-WAVE_PUBLIC_BASE_URL=https://jambaarpay.com
-WAVE_CHECKOUT_SIGNING_SECRET=replace-with-a-random-secret-of-at-least-32-bytes
-WAVE_CHECKOUT_DEFAULT_LOGO_URL=
-WAVE_CHECKOUT_DEFAULT_THEME=#0095ff
-WAVE_CHECKOUT_LINK_TTL_MINUTES=30
-KKIAPAY_SANDBOX=true
-KKIAPAY_BASE_URL=
-KKIAPAY_PUBLIC_KEY=your-public-key
-KKIAPAY_PRIVATE_KEY=your-private-key
-KKIAPAY_SECRET_KEY=your-secret-key
-JWT_ISSUER=jambaarpay-user-service
-JWT_SECRET=replace-with-the-same-random-secret-used-by-user-service-and-api-gateway
+PAYDUNYA_SANDBOX=true
+PAYDUNYA_MASTER_KEY=valeur-de-la-master-key
+PAYDUNYA_PRIVATE_KEY=valeur-de-la-private-key-test
+PAYDUNYA_TOKEN=valeur-du-token-test
+PAYDUNYA_STORE_NAME=JambaarPay
 ```
 
-## Manual diagnose
+Ces trois clés proviennent de la même application PayDunya en mode test.
+Elles sont utilisées uniquement par le serveur dans les en-têtes
+`PAYDUNYA-MASTER-KEY`, `PAYDUNYA-PRIVATE-KEY` et `PAYDUNYA-TOKEN`.
+La clé publique n’est pas nécessaire à cette API HTTP/JSON. Ne pas ajouter de
+clés PayDunya dans Angular. Utiliser des valeurs sans guillemets extérieurs.
 
-### KkiaPay environments and browser payment errors
+Les variables `KKIAPAY_*` et `WAVE_CHECKOUT_*` ne sont plus utilisées.
+`WAVE_PUBLIC_BASE_URL` n’est plus nécessaire : la page est hébergée par PayDunya.
+Le JWT effectif doit rester celui de user-service ; les variables directes
+`SECURITY_JWT_*` ont priorité sur les placeholders `JWT_*`.
 
-An HTTP `400` from `https://api-sandbox.kkiapay.me/api/v1/payments/wave`
-comes from the KkiaPay widget's payment request. This URL confirms that the
-widget is using sandbox; the HTTP status alone does not identify the refusal.
-Inspect that request's **Response** in the browser network panel and retain
-only the provider error code and message, without API keys or phone numbers.
+L’URL de l’API est choisie automatiquement par `PAYDUNYA_SANDBOX` :
 
-KkiaPay's [sandbox test guide](https://docs.kkiapay.me/v1/compte/kkiapay-sandbox-guide-de-test)
-requires sandbox API keys and the documented test data for simulations.
-Its [JavaScript SDK documentation](https://docs.kkiapay.me/v1/plugin-et-sdk/sdk-javascript)
-describes the `sandbox` flag. A production payment requires an activated
-merchant account and its production key set; changing the flag alone does not
-convert sandbox keys into production keys.
+- `true` : `https://app.paydunya.com/sandbox-api/v1`
+- `false` : `https://app.paydunya.com/api/v1`
 
-The reported attempt used a real Senegal Wave number with sandbox enabled.
-For a documented successful simulation, select **MTN Benin** in the widget
-and use **61000000**. KkiaPay also documents **61000001** for a processing-error
-scenario. Use a test amount such as **1000 XOF**; this is an example, not a
-documented minimum. The consulted test guide does not list a Senegal Wave
-test number: obtain that scenario from KkiaPay to verify Wave specifically.
-The checkout page now displays these sandbox instructions before opening
-the widget and waits for a click on the payment button so they can be read.
-Production checkouts keep automatic opening and do not display test-number
-instructions.
+Pour cette intégration, conserver **true**. Aucun changement en production
+réelle n’est requis pour tester le parcours.
 
-For the employee balance-loading flow, a successful simulation must still be
-verified server-side by `wave-service`. The new `wallet-service` employee-topup
-request records recipients before checkout and commits every employee credit,
-the provider receipt and completion together. The browser no longer chains a
-company top-up and a separate bulk transfer. Repeated confirmations return the
-recorded result. A refused widget payment has not reached these crediting steps.
+## Déploiement
 
-Deploy this provider service first, then `wallet-service` (additive Flyway V3),
-then the web application. The new checkout and verification responses include
-the sandbox mode; verification also returns KkiaPay's `partnerId`. Existing
-links created before this change should be regenerated. All three API keys
-must be present before a checkout link can be created. The SDK now receives
-a numeric amount and an array for `paymentmethod`, with a single success
-listener responsible for the return redirect. See
-[`wallet_service/EMPLOYEE_TOP_UPS.md`](../wallet_service/EMPLOYEE_TOP_UPS.md)
-for the request API, recovery and sandbox acceptance checks.
+Les secrets SSH/GHCR existants restent identiques : `VPS_HOST`, `VPS_USER`,
+`VPS_SSH_KEY`, `VPS_KNOWN_HOSTS`, `GHCR_PULL_USERNAME`, `GHCR_PULL_TOKEN`.
+Le namespace par défaut est `jambarpay` (`K8S_NAMESPACE`).
 
-| Environment | `KKIAPAY_SANDBOX` | Verification API with empty `KKIAPAY_BASE_URL` |
-| --- | --- | --- |
-| Sandbox | `true` | `https://api-sandbox.kkiapay.me` |
-| Production | `false` | `https://api.kkiapay.me` |
+1. Renseigner le secret complet `WAVE_SERVICE_ENV` avec le bloc ci-dessus.
+2. Déployer wave_service, puis wallet_service (migration additive Flyway V4),
+   puis Webjambarpay. Éviter de lancer des paiements pendant cette transition.
+3. Se reconnecter au compte entreprise et créer un nouveau chargement.
+   Les anciens chargements KkiaPay ne sont pas convertis : vérifier tout
+   éventuel paiement ancien avant de repartir sur une nouvelle demande.
+4. Utiliser des comptes de démonstration. Le paiement fournisseur est simulé,
+   mais sa confirmation applique les soldes dans la base de l’application.
 
-Keep `KKIAPAY_BASE_URL` empty unless an explicit override is needed. The service
-already selects the matching verification API from `KKIAPAY_SANDBOX`. An
-explicit sandbox URL overrides that selection even when the flag is `false`,
-which can prevent verification after a production payment. This setting
-controls server verification; it does not override the widget's sandbox flag.
-
-Inspect the deployed settings without exposing keys:
+Contrôler les variables du conteneur depuis le VPS sans afficher les clés :
 
 ```bash
 kubectl -n jambarpay exec deployment/wave-service -- sh -c '
-printf "sandbox=%s\nverification_api=%s\n" "$KKIAPAY_SANDBOX" "${KKIAPAY_BASE_URL:-automatique}"
-if [ -n "$KKIAPAY_PUBLIC_KEY" ]; then printf "public_key=RENSEIGNÉ\n"; else printf "public_key=VIDE\n"; fi
-if [ -n "$KKIAPAY_PRIVATE_KEY" ]; then printf "private_key=RENSEIGNÉ\n"; else printf "private_key=VIDE\n"; fi
-if [ -n "$KKIAPAY_SECRET_KEY" ]; then printf "secret_key=RENSEIGNÉ\n"; else printf "secret_key=VIDE\n"; fi
+printf "PAYDUNYA_SANDBOX=%s\n" "${PAYDUNYA_SANDBOX:-ABSENTE}"
+for key in PAYDUNYA_MASTER_KEY PAYDUNYA_PRIVATE_KEY PAYDUNYA_TOKEN; do
+  value=$(printenv "$key" 2>/dev/null || true)
+  if [ -n "$value" ]; then status=RENSEIGNEE; else status=ABSENTE_OU_VIDE; fi
+  printf "%s=%s\n" "$key" "$status"
+done
 '
+kubectl -n jambarpay get pods -l 'app in (wallet-service,wave-service)'
 ```
 
-Do not infer that Wave sandbox is unsupported, or that a payment succeeded,
-from HTTP `400` alone. No provider request or real payment is needed to inspect
-these settings. Update the complete `WAVE_SERVICE_ENV` secret when correcting
-the environment, preserving its other service settings, then redeploy and
-generate a fresh checkout link.
+## Parcours et confirmation
 
-### Checkout creation and deployment
+Le serveur crée la facture avec `POST /checkout-invoice/create` : montant
+entier XOF, nom de boutique, référence du chargement dans
+`custom_data.payment_reference` et URL de retour comprenant `topUpId`.
+La réponse doit avoir `response_code=00` et fournir un token et une URL
+PayDunya du même environnement. Ces informations sont enregistrées avant
+la redirection du navigateur.
 
-The web checkout returns to `/enterprise-employees/charge-balances` on the
-origin that initiated the payment, so its pending recharge remains available in
-the browser session. `WAVE_PUBLIC_BASE_URL` must point to a public gateway URL
-serving `/api/v1/wave/checkout/{token}`. This signed, expiring page is accessible
-without a bearer token; checkout creation and transaction verification require
-authentication.
+PayDunya ajoute `token` à l’URL de retour. Angular le transmet à wallet-service,
+qui vérifie la facture par `GET /checkout-invoice/confirm/{token}`.
+Seul `status=completed` autorise le crédit, après contrôle du code `00`,
+du hash SHA-512 de la Master Key, du mode `test`, du token, du montant et
+de la référence du chargement. Un simple retour navigateur n’est pas une preuve
+que le paiement a réussi. Les portefeuilles, le reçu et la confirmation sont
+écrits dans une seule transaction SQL ; les confirmations répétées sont idempotentes.
 
-For a `400` from `POST /api/v1/wave/checkout-links`, inspect the JSON `message`
-field. Link creation requires `KKIAPAY_PUBLIC_KEY` and a signing secret of at
-least 32 bytes (`WAVE_CHECKOUT_SIGNING_SECRET`, or `KKIAPAY_SECRET_KEY` as a
-fallback). Configure these in `WAVE_SERVICE_ENV` and redeploy if they are missing
-or too short.
+Une facture en attente est réutilisée. Le bouton Reprendre vérifie d’abord son
+état : si elle est déjà payée, le chargement est confirmé sans repayer ; seules
+les factures annulées ou échouées peuvent être remplacées. L’indication locale
+`expiresAt` de 24 heures ne remplace pas le statut renvoyé par PayDunya.
 
-If the page displays `KKIAPAY public key is not configured`, set the real
-`KKIAPAY_PUBLIC_KEY` in the `WAVE_SERVICE_ENV` GitHub Actions secret of the
-Wave service repository. Include the corresponding `KKIAPAY_PRIVATE_KEY` and
-`KKIAPAY_SECRET_KEY` for transaction verification, and keep `KKIAPAY_SANDBOX`
-consistent with those keys. The `.env.example` file is a template; editing it
-does not update the deployed service.
+Cette version confirme au retour navigateur, à la reprise du paiement ou avec
+une référence de facture connue. Elle ne configure pas encore d’IPN : fermer
+l’onglet avant le retour impose de reprendre le chargement pour confirmer.
+L’IPN documentée utilise un POST `application/x-www-form-urlencoded` ; aucun
+callback non implémenté n’est envoyé à PayDunya.
 
-After updating the secret, rerun `Deploy On Main`. The deployment bundle hashes
-the environment file into the pod template, so changes to credentials restart
-the pods even when the image version stays the same.
+## Diagnostic
+
+- HTTP 400 de `/api/v1/wave/checkout-links` : lire `code` et `message` du JSON.
+- HTTP 503 : consulter les lignes `PayDunya request failed:` dans wave-service
+  et `Employee top-up checkout failed:` dans wallet-service. Elles ne contiennent
+  ni clés ni corps de réponse fournisseur.
+- Un refus HTTP 200 avec `response_code` différent de `00` reste un échec.
+- Un statut `pending`, `cancelled` ou `failed` ne crédite aucun salarié.
 
 ```bash
-sudo kubectl -n jambarpay get deployment wave-service
-sudo kubectl -n jambarpay get svc wave-service
-sudo kubectl -n jambarpay get pods -l app=wave-service -o wide
-sudo kubectl -n jambarpay logs deployment/wave-service --tail=200
-sudo kubectl -n jambarpay get events --sort-by=.metadata.creationTimestamp | tail -n 50
+kubectl -n jambarpay logs deployment/wave-service --since=15m | grep -F 'PayDunya request failed:'
+kubectl -n jambarpay logs deployment/wallet-service --since=15m | grep -F 'Employee top-up checkout failed:'
 ```
+
+Les tests utilisent des réponses HTTP simulées et une base PostgreSQL locale
+jetable. Ils ne contactent pas PayDunya et ne déclenchent aucun paiement.

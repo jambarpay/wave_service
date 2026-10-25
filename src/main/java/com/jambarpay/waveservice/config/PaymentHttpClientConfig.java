@@ -13,8 +13,8 @@ public class PaymentHttpClientConfig {
     RestClientCustomizer paymentTimeouts() {
         return builder -> {
             var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(3)).build());
-            factory.setReadTimeout(Duration.ofSeconds(10));
+                    .connectTimeout(Duration.ofSeconds(2)).build());
+            factory.setReadTimeout(Duration.ofSeconds(5));
             builder.requestFactory(factory);
         };
     }
