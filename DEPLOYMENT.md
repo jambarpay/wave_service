@@ -98,6 +98,30 @@ callback non implémenté n’est envoyé à PayDunya.
 
 ## Diagnostic
 
+### Pod bloqué sur une ancienne clé KkiaPay
+
+Si les événements indiquent `CreateContainerConfigError` et
+`couldn't find key KKIAPAY_SANDBOX`, le Deployment conserve une ancienne
+référence explicite vers une clé retirée du secret. Le conteneur n’a pas encore
+démarré ; augmenter le timeout du rollout ne corrige pas cette configuration.
+
+Le workflow exécute désormais `reconcile-wave-service-env.py` après l’application
+du manifeste. Ce nettoyage retire uniquement les anciennes entrées KkiaPay et
+les paramètres de page de checkout supprimés. Il préserve les clés PayDunya,
+JWT et Eureka ainsi que l’image ; il ne modifie aucun Secret.
+
+Pour réparer le Deployment existant depuis un terminal **local** :
+
+```bash
+ssh ubuntu@149.202.61.30 'python3 - --namespace jambarpay --apply && kubectl -n jambarpay rollout status deployment/wave-service --timeout=600s' < /home/abdoulaye/Bureau/JambarPay/wave_service/.github/scripts/reconcile-wave-service-env.py
+```
+
+Le changement du template déclenche le remplacement des pods. Sans `--apply`,
+le script affiche uniquement les noms des entrées à retirer. Les valeurs ne
+sont jamais affichées. Un Deployment déjà nettoyé n’est pas modifié.
+
+### Requêtes de paiement
+
 - HTTP 400 de `/api/v1/wave/checkout-links` : lire `code` et `message` du JSON.
 - HTTP 503 : consulter les lignes `PayDunya request failed:` dans wave-service
   et `Employee top-up checkout failed:` dans wallet-service. Elles ne contiennent
