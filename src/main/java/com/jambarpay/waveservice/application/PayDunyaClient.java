@@ -25,7 +25,7 @@ public class PayDunyaClient {
     public JsonNode create(Object invoice) {
         ensureCredentials();
         try {
-            return accepted(client.post().uri("/checkout-invoice/create")
+            return accepted("create", client.post().uri("/checkout-invoice/create")
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("PAYDUNYA-MASTER-KEY", properties.getMasterKey())
                     .header("PAYDUNYA-PRIVATE-KEY", properties.getPrivateKey())
@@ -42,7 +42,7 @@ public class PayDunyaClient {
             throw new DomainException("La référence de facture PayDunya est invalide.");
         }
         try {
-            return accepted(client.get().uri("/checkout-invoice/confirm/{token}", invoiceToken)
+            return accepted("confirm", client.get().uri("/checkout-invoice/confirm/{token}", invoiceToken)
                     .header("PAYDUNYA-MASTER-KEY", properties.getMasterKey())
                     .header("PAYDUNYA-PRIVATE-KEY", properties.getPrivateKey())
                     .header("PAYDUNYA-TOKEN", properties.getToken())
@@ -52,16 +52,20 @@ public class PayDunyaClient {
         }
     }
 
-    private JsonNode accepted(JsonNode body) {
+    private JsonNode accepted(String operation, JsonNode body) {
         if (body == null || !"00".equals(body.path("response_code").asText())) {
-            throw new DomainException("PayDunya a refusé la demande. Vérifiez la configuration sandbox et la référence de facture.");
+            String code = body == null ? "" : body.path("response_code").asText();
+            String safeCode = code.matches("[0-9]{1,8}") ? code : "UNCLASSIFIED";
+            log.warn("PayDunya response rejected: operation={}, responseCode={}", operation, safeCode);
+            throw new DomainException("PAYDUNYA_REJECTED",
+                    "PayDunya a refusé la demande. Vérifiez la configuration sandbox et la référence de facture.", safeCode);
         }
         return body;
     }
 
     private void ensureCredentials() {
         if (blank(properties.getMasterKey()) || blank(properties.getPrivateKey()) || blank(properties.getToken())) {
-            throw new DomainException("Les clés API PayDunya ne sont pas configurées.");
+            throw new DomainException("PAYMENT_KEYS_MISSING", "Les clés API PayDunya ne sont pas configurées.");
         }
     }
 

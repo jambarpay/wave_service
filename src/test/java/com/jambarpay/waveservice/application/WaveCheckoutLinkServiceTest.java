@@ -5,18 +5,22 @@ import com.jambarpay.waveservice.domain.exception.DomainException;
 import com.jambarpay.waveservice.presentation.request.CreateCheckoutLinkRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import java.math.BigDecimal;
 import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+@ExtendWith(OutputCaptureExtension.class)
 class WaveCheckoutLinkServiceTest {
     private PayDunyaProperties properties;
     private MockRestServiceServer server;
@@ -65,10 +69,24 @@ class WaveCheckoutLinkServiceTest {
     }
 
     @Test
-    void rejectsBusinessFailureEvenWithHttp200() {
+    void rejectsBusinessFailureEvenWithHttp200(CapturedOutput output) {
         server.expect(anything()).andRespond(withSuccess("{\"response_code\":\"1001\",\"response_text\":\"sensitive diagnostic\"}", MediaType.APPLICATION_JSON));
         var error = assertThrows(DomainException.class, () -> service.createCheckoutLink(request()));
+        assertEquals("PAYDUNYA_REJECTED", error.getCode());
+        assertEquals("1001", error.getProviderCode());
+        assertTrue(output.getAll().contains("operation=create, responseCode=1001"));
         assertFalse(error.getMessage().contains("sensitive diagnostic"));
+        assertFalse(output.getAll().contains("sensitive diagnostic"));
+        server.verify();
+    }
+
+    @Test
+    void neverLogsOrReturnsAnUnexpectedProviderCodeValue(CapturedOutput output) {
+        server.expect(anything()).andRespond(withSuccess("{\"response_code\":\"private-provider-value\",\"response_text\":\"private-diagnostic\"}", MediaType.APPLICATION_JSON));
+        var error = assertThrows(DomainException.class, () -> service.createCheckoutLink(request()));
+        assertEquals("UNCLASSIFIED", error.getProviderCode());
+        assertFalse(output.getAll().contains("private-provider-value"));
+        assertFalse(output.getAll().contains("private-diagnostic"));
         server.verify();
     }
 

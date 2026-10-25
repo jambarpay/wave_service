@@ -23,7 +23,7 @@ class CheckoutErrorResponseTest {
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         mvc.perform(post("/api/v1/wave/checkout-links").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":2500,\"callbackUrl\":\"https://jambaarpay.com/return\"}"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PAYMENT_REQUEST_REJECTED"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PAYMENT_KEYS_MISSING"))
                 .andExpect(jsonPath("$.message").value("Les clés API PayDunya ne sont pas configurées."));
     }
 }

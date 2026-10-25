@@ -151,6 +151,13 @@ dernier contient une clé valide.
 ### Requêtes de paiement
 
 - HTTP 400 de `/api/v1/wave/checkout-links` : lire `code` et `message` du JSON.
+- Les refus locaux utilisent des codes distincts : `PAYMENT_KEYS_MISSING`,
+  `PAYMENT_STORE_MISSING`, `PAYMENT_RETURN_URL_INVALID`, `PAYMENT_AMOUNT_INVALID`,
+  `PAYMENT_LINK_INVALID` ou `PAYMENT_REQUEST_INVALID`. Ils sont journalisés sous
+  `Payment request rejected:` sans valeurs de configuration.
+- `PAYDUNYA_REJECTED` distingue un refus fournisseur avec HTTP 200 et un
+  `response_code` différent de `00`. Seul un code numérique de huit caractères
+  maximum est transmis et journalisé ; le texte fournisseur n’est pas exposé.
 - HTTP 503 : consulter les lignes `PayDunya request failed:` dans wave-service
   et `Employee top-up checkout failed:` dans wallet-service. Elles ne contiennent
   ni clés ni corps de réponse fournisseur.
@@ -158,8 +165,8 @@ dernier contient une clé valide.
 - Un statut `pending`, `cancelled` ou `failed` ne crédite aucun salarié.
 
 ```bash
-kubectl -n jambarpay logs deployment/wave-service --since=15m | grep -F 'PayDunya request failed:'
-kubectl -n jambarpay logs deployment/wallet-service --since=15m | grep -F 'Employee top-up checkout failed:'
+kubectl -n jambarpay logs deployment/wave-service --since=15m | grep -E 'Payment request rejected:|PayDunya (request failed|response rejected):'
+kubectl -n jambarpay logs deployment/wallet-service --since=15m | grep -E 'Employee top-up checkout (failed|rejected):'
 ```
 
 Les tests utilisent des réponses HTTP simulées et une base PostgreSQL locale

@@ -26,10 +26,10 @@ public class WaveCheckoutLinkService {
         validateCallback(request.getCallbackUrl());
         if (request.getAmount() == null || request.getAmount().signum() <= 0
                 || request.getAmount().stripTrailingZeros().scale() > 0) {
-            throw new DomainException("Le montant doit être un entier positif en FCFA.");
+            throw new DomainException("PAYMENT_AMOUNT_INVALID", "Le montant doit être un entier positif en FCFA.");
         }
         if (properties.getStoreName() == null || properties.getStoreName().isBlank()) {
-            throw new DomainException("Le nom de la boutique PayDunya est requis.");
+            throw new DomainException("PAYMENT_STORE_MISSING", "Le nom de la boutique PayDunya est requis.");
         }
         Map<String, Object> invoice = new LinkedHashMap<>();
         invoice.put("total_amount", request.getAmount());
@@ -68,7 +68,7 @@ public class WaveCheckoutLinkService {
                 throw new IllegalArgumentException();
             }
         } catch (IllegalArgumentException exception) {
-            throw new DomainException("PayDunya a retourné un lien de paiement incompatible avec le mode configuré.");
+            throw new DomainException("PAYMENT_LINK_INVALID", "PayDunya a retourné un lien de paiement incompatible avec le mode configuré.");
         }
     }
 
@@ -80,7 +80,7 @@ public class WaveCheckoutLinkService {
             if ((!"https".equalsIgnoreCase(uri.getScheme()) && !local) || uri.getHost() == null
                     || uri.getUserInfo() != null || uri.getFragment() != null) throw new IllegalArgumentException();
         } catch (RuntimeException exception) {
-            throw new DomainException("L’URL de retour doit utiliser HTTPS (HTTP autorisé sur localhost).");
+            throw new DomainException("PAYMENT_RETURN_URL_INVALID", "L’URL de retour doit utiliser HTTPS (HTTP autorisé sur localhost).");
         }
     }
 }
